@@ -1,9 +1,10 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, Button } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
 import { Colors } from './constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback } from 'react';
+import FontAwesome from 'react-native-vector-icons/FontAwesome';
 
 export default function App() {
   SplashScreen.preventAutoHideAsync();
@@ -28,14 +29,17 @@ export default function App() {
     <View style={styles.container} onLayout={onLayoutRootView}>
       <Text style={styles.titulo}>PLAYING</Text>
       <Image source={require('./assets/imagenes/logo-5.png')} style={styles.logo} />
-      <View>
-        <Text>Inicia Sesión</Text>
-        <Button
-          title="Continua con Google"
+      <View style={styles.contenedorLogin}>
+        <Text style={styles.subtitulo} >Inicia Sesión</Text>
+        <TouchableOpacity
+          style={styles.googleButton}
           onPress={() => {
-            console.log('Botón presionado');
+            console.log('Botón Google presionado');
           }}
-        />
+        >
+          <FontAwesome name="google" size={25} color="white" />
+          <Text style={styles.googleButtonText}>Continúa con Google</Text>
+        </TouchableOpacity>
       </View>
       <StatusBar style="light" />
     </View>
@@ -43,10 +47,12 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
+  
   container: {
+    color: 'white',
     flex: 1,
     display: 'flex',
-    backgroundColor: 'black',
+    backgroundColor: Colors.fondo,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -58,6 +64,11 @@ const styles = StyleSheet.create({
     color: 'white',
     top: '10%',
   },
+  subtitulo: {
+    fontFamily: 'Michroma-Regular',
+    color: 'white',
+    fontSize: 24
+  },
   logo: {
     position: 'absolute',
     marginTop: '100%',
@@ -67,5 +78,27 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     width: '100%',
     objectFit: 'contain'
-  }
+  },
+  contenedorLogin: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 60,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  googleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'black',
+    padding: 20,
+    borderRadius: 99,
+  },
+  googleButtonText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginLeft: 10,
+    fontFamily: 'Onest-Regular',
+    color: 'white'
+  },
 });
