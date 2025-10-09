@@ -5,10 +5,13 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback } from 'react';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
+import { NavigationContainer } from '@react-navigation/native';
+import { createStackNavigator } from '@react-navigation/stack';
+import QrScreen from './screens/QrScreen';
 
-export default function App() {
-  SplashScreen.preventAutoHideAsync();
+const Stack = createStackNavigator();
 
+function HomeScreen({ navigation }) {
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('./assets/fonts/Michroma-Regular.ttf'),
     'Onest-Regular': require('./assets/fonts/Onest-Regular.ttf'),
@@ -30,11 +33,11 @@ export default function App() {
       <Text style={styles.titulo}>PLAYING</Text>
       <Image source={require('./assets/imagenes/logo-5.png')} style={styles.logo} />
       <View style={styles.contenedorLogin}>
-        <Text style={styles.subtitulo} >Inicia Sesión</Text>
+        <Text style={styles.subtitulo}>Inicia Sesión</Text>
         <TouchableOpacity
           style={styles.googleButton}
           onPress={() => {
-            console.log('Botón Google presionado');
+            navigation.navigate('Qr');
           }}
         >
           <FontAwesome name="google" size={25} color="white" />
@@ -43,6 +46,17 @@ export default function App() {
       </View>
       <StatusBar style="light" />
     </View>
+  );
+}
+
+export default function App() {
+  return (
+    <NavigationContainer>
+      <Stack.Navigator initialRouteName="Home">
+        <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
 
