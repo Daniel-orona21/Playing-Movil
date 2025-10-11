@@ -1,6 +1,6 @@
 export const Colors = {
-  // fondo: '#080808',
-  fondo: 'black',
+  fondo: '#080808',
+  // fondo: 'black',
   tab: 'rgba(217, 217, 217, .15)',
   tabSeleccionado: 'rgba(217, 217, 217, .25)',
   contenedor: '#3131314d',

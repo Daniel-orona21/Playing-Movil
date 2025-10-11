@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Platform } from 'react-native';
 import { Colors } from './constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -15,6 +15,7 @@ const Stack = createStackNavigator();
 function HomeScreen({ navigation }) {
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('./assets/fonts/Michroma-Regular.ttf'),
+    'KaushanScript-Regular': require('./assets/fonts/KaushanScript-Regular.ttf'),
     'Onest-Regular': require('./assets/fonts/Onest-Regular.ttf'),
     'Onest-Bold': require('./assets/fonts/Onest-Bold.ttf'),
   });
@@ -57,7 +58,30 @@ export default function App() {
       {/* <Stack.Navigator initialRouteName="Layout"> */}
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="Layout" component={LayoutScreen} options={{ headerShown: false }} />
+        <Stack.Screen 
+          name="Layout" 
+          component={LayoutScreen} 
+          options={{ 
+            headerShown: true,
+            headerLeft: null,
+            headerBackVisible: false,
+            gestureEnabled: false,
+            headerTitle: () => (
+              <Text style={{
+                fontFamily: 'KaushanScript-Regular',
+                fontSize: 30,
+                paddingBottom: 50,
+                color: 'white'
+              }}>
+                Full Wings!
+              </Text>
+            ),
+            headerStyle: {
+              backgroundColor: Colors.fondo,
+            },
+            headerTintColor: 'white'
+          }} 
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );
@@ -69,7 +93,7 @@ const styles = StyleSheet.create({
     color: 'white',
     flex: 1,
     display: 'flex',
-    backgroundColor: Colors.fondo,
+    backgroundColor: 'black',
     alignItems: 'center',
     justifyContent: 'center',
   },

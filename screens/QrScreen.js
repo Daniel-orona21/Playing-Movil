@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
         color: 'white',
         flex: 1,
         display: 'flex',
-        backgroundColor: Colors.fondo,
+        backgroundColor: 'black',
         alignItems: 'center',
         justifyContent: 'center',
       },
