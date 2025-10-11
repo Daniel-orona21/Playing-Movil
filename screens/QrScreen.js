@@ -7,6 +7,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import { useFocusEffect } from '@react-navigation/native';
 
 const QrScreen = ({ navigation }) => {
     const [fontsLoaded, fontError] = useFonts({
@@ -20,6 +21,7 @@ const QrScreen = ({ navigation }) => {
     const [permission, requestPermission] = useCameraPermissions();
     const [facing, setFacing] = useState('back');
     const [cameraReady, setCameraReady] = useState(false);
+    const [shouldRenderCamera, setShouldRenderCamera] = useState(false);
     
     // Animation values for smooth transitions
     const normalOpacity = useRef(new Animated.Value(1)).current;
@@ -27,6 +29,9 @@ const QrScreen = ({ navigation }) => {
     
     // QR scanning state
     const [scanned, setScanned] = useState(false);
+    
+    // Ref to track if we're navigating to prevent camera reactivation
+    const isNavigating = useRef(false);
 
       const onLayoutRootView = useCallback(async () => {
         if (fontsLoaded || fontError) {
@@ -40,6 +45,39 @@ const QrScreen = ({ navigation }) => {
         requestPermission();
       }
     }, [permission, requestPermission]);
+
+    // Use useFocusEffect only for cleanup when screen loses focus
+    useFocusEffect(
+      useCallback(() => {
+        // Reset navigation flag when screen gains focus
+        isNavigating.current = false;
+        
+        // Cleanup function to stop camera when screen loses focus
+        return () => {
+          console.log('QrScreen losing focus - completely unmounting camera');
+          setIsCameraActive(false);
+          setCameraReady(false);
+          setScanned(false);
+          setShouldRenderCamera(false);
+          isNavigating.current = false;
+          // Reset animations
+          normalOpacity.setValue(1);
+          cameraOpacity.setValue(0);
+        };
+      }, [normalOpacity, cameraOpacity])
+    );
+
+    // Initialize screen state only once when component mounts
+    useEffect(() => {
+      console.log('QrScreen mounted - initializing camera');
+      // Initialize camera but keep it inactive
+      setShouldRenderCamera(true);
+      setIsCameraActive(false);
+      setCameraReady(false);
+      setScanned(false);
+      normalOpacity.setValue(1);
+      cameraOpacity.setValue(0);
+    }, [normalOpacity, cameraOpacity]);
 
     // Animation functions for smooth transitions
     const activateCamera = () => {
@@ -74,14 +112,21 @@ const QrScreen = ({ navigation }) => {
 
     // Handle QR code scanning
     const handleBarcodeScanned = ({ type, data }) => {
-      if (!scanned) {
+      if (!scanned && !isNavigating.current) {
+        isNavigating.current = true;
         setScanned(true);
         console.log('QR Code scanned:', data);
         
-        // Navigate to layout after successful scan
-        setTimeout(() => {
-          navigation.navigate('Layout');
-        }, 1000);
+        // Immediately and aggressively deactivate camera
+        setIsCameraActive(false);
+        setCameraReady(false);
+        setShouldRenderCamera(false);
+        
+        // Force stop camera immediately
+        console.log('Force unmounting camera after QR scan');
+        
+        // Navigate immediately without delay to prevent camera persistence
+        navigation.navigate('Layout');
       }
     };
     
@@ -103,14 +148,16 @@ const QrScreen = ({ navigation }) => {
         <TouchableOpacity
           style={styles.qrButton}
           onPress={() => {
-            if (permission?.granted) {
+            if (permission?.granted && !isNavigating.current) {
               setScanned(false);
               setIsCameraActive(true);
               activateCamera();
               setTimeout(() => setCameraReady(true), 100);
-            } else {
+            } else if (!permission?.granted) {
               console.log('Sin permiso para la cámara');
               requestPermission();
+            } else {
+              console.log('Navigation in progress - camera activation blocked');
             }
           }}
         >
@@ -120,7 +167,7 @@ const QrScreen = ({ navigation }) => {
 
       {/* Camera state container */}
       <Animated.View style={[styles.container, { opacity: cameraOpacity, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
-        {permission?.granted && (
+        {permission?.granted && shouldRenderCamera && (
           <CameraView
             style={StyleSheet.absoluteFill}
             facing={facing}

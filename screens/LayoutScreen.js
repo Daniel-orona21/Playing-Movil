@@ -157,7 +157,6 @@ const styles = StyleSheet.create({
     marginRight: 10,
   },
   settingsContainer: {
-    // Contenedor para el botón de ajustes separado
   },
   tabButton: {
     flex: 1,

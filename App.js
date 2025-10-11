@@ -53,8 +53,8 @@ function HomeScreen({ navigation }) {
 export default function App() {
   return (
     <NavigationContainer>
-      {/* <Stack.Navigator initialRouteName="Home"> */}
-      <Stack.Navigator initialRouteName="Layout">
+      <Stack.Navigator initialRouteName="Home">
+      {/* <Stack.Navigator initialRouteName="Layout"> */}
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Layout" component={LayoutScreen} options={{ headerShown: false }} />
