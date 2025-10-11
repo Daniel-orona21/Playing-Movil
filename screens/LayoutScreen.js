@@ -13,18 +13,27 @@ const Tab = createBottomTabNavigator();
 
 const LayoutScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = React.useState('Música');
+  const [displayedTab, setDisplayedTab] = React.useState('Música');
   const fadeAnim = React.useRef(new Animated.Value(1)).current;
 
   const handleTabChange = (newTab) => {
-    // Animación de fade out
+    // No permitir seleccionar el tab que ya está activo
+    if (activeTab === newTab) {
+      return;
+    }
+    
+    // Cambiar el tab inmediatamente (sin animación)
+    setActiveTab(newTab);
+    
+    // Animación del contenido: fade out, cambio de contenido, fade in
     Animated.timing(fadeAnim, {
       toValue: 0,
       duration: 150,
       useNativeDriver: true,
     }).start(() => {
-      // Cambiar el tab
-      setActiveTab(newTab);
-      // Animación de fade in
+      // Cambiar el contenido cuando está invisible
+      setDisplayedTab(newTab);
+      // Fade in del nuevo contenido
       Animated.timing(fadeAnim, {
         toValue: 1,
         duration: 150,
@@ -34,7 +43,7 @@ const LayoutScreen = ({ navigation }) => {
   };
 
   const renderScreen = () => {
-    switch (activeTab) {
+    switch (displayedTab) {
       case 'Música':
         return <MusicaScreen />;
       case 'Juego':
