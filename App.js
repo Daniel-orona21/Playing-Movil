@@ -63,6 +63,7 @@ export default function App() {
           component={LayoutScreen} 
           options={{ 
             headerShown: true,
+            headerTransparent: true,
             headerLeft: null,
             headerBackVisible: false,
             gestureEnabled: false,
@@ -77,7 +78,7 @@ export default function App() {
               </Text>
             ),
             headerStyle: {
-              backgroundColor: Colors.fondo,
+              backgroundColor: 'transparent',
               borderWidth: 0,
               borderBottomWidth: 0,
               elevation: 0,

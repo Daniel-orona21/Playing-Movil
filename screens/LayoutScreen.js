@@ -2,12 +2,13 @@ import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
 import MusicaScreen from './MusicaScreen';
 import JuegoScreen from './JuegoScreen';
 import OrdenesScreen from './OrdenesScreen';
 import AjustesScreen from './AjustesScreen';
 import { Colors } from '../constants/Colors';
+import { BlurView } from 'expo-blur';
 
 const Tab = createBottomTabNavigator();
 
@@ -76,11 +77,21 @@ const LayoutScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
-        {renderScreen()}
-      </Animated.View>
+      {/* Imagen de fondo */}
+      <Image 
+        source={require('../assets/imagenes/logo-6.png')} 
+        style={styles.backgroundImage}
+        resizeMode="cover"
+      />
       
-      <View style={styles.tabBar}>
+      {/* BlurView sobre la imagen */}
+      <BlurView intensity={0} style={styles.blurContainer}>
+        <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
+          {renderScreen()}
+        </Animated.View>
+
+        {/* TabBar dentro del blur */}
+        <View style={styles.tabBar}>
         <View style={styles.mainTabsContainer}>
             <TabButton
               tabName="Juego"
@@ -123,6 +134,7 @@ const LayoutScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+      </BlurView>
       
       <StatusBar style="light" />
     </View>
@@ -132,18 +144,39 @@ const LayoutScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  backgroundImage: {
+    position: 'absolute',
+    top: 0,
+    transform: [
+      {scale: 1.3}
+    ],
+    left: 0,
+    right: 0,
+    bottom: 0,
+    width: '100%',
+    height: '100%',
+    zIndex: -1,
+  },
+  blurContainer: {
+    flex: 1,
     backgroundColor: Colors.fondo,
   },
   screenContainer: {
     flex: 1,
+    backgroundColor: 'transparent',
+    paddingTop: 40,
   },
   tabBar: {
+    backgroundColor: 'transparent',
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 10,
     paddingBottom: 20,
     alignItems: 'center',
     justifyContent: 'space-between',
+    position: 'relative',
+    zIndex: 1,
   },
   mainTabsContainer: {
     flexDirection: 'row',
