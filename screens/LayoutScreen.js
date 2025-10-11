@@ -1,6 +1,8 @@
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import MusicaScreen from './MusicaScreen';
 import JuegoScreen from './JuegoScreen';
 import OrdenesScreen from './OrdenesScreen';
@@ -10,75 +12,182 @@ import { Colors } from '../constants/Colors';
 const Tab = createBottomTabNavigator();
 
 const LayoutScreen = ({ navigation }) => {
+  const [activeTab, setActiveTab] = React.useState('Música');
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+
+  const handleTabChange = (newTab) => {
+    // Animación de fade out
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start(() => {
+      // Cambiar el tab
+      setActiveTab(newTab);
+      // Animación de fade in
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 150,
+        useNativeDriver: true,
+      }).start();
+    });
+  };
+
+  const renderScreen = () => {
+    switch (activeTab) {
+      case 'Música':
+        return <MusicaScreen />;
+      case 'Juego':
+        return <JuegoScreen />;
+      case 'Ordenes':
+        return <OrdenesScreen />;
+      case 'Ajustes':
+        return <AjustesScreen />;
+      default:
+        return <JuegoScreen />;
+    }
+  };
+
+  const TabButton = ({ tabName, iconName, label, isSelected, onPress }) => (
+    <TouchableOpacity
+      style={[
+        styles.tabButton,
+        isSelected ? styles.tabButtonSelected : styles.tabButtonUnselected
+      ]}
+      onPress={onPress}
+    >
+      <Ionicons 
+        name={iconName} 
+        size={20} 
+        color="white" 
+      />
+      <Text style={styles.tabLabel}>{label}</Text>
+    </TouchableOpacity>
+  );
+
   return (
-    <>
-      <Tab.Navigator
-        screenOptions={({ route }) => ({
-          tabBarIcon: ({ focused, color, size }) => {
-            let iconName;
+    <View style={styles.container}>
+      <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
+        {renderScreen()}
+      </Animated.View>
+      
+      <View style={styles.tabBar}>
+        <View style={styles.mainTabsContainer}>
+            <TabButton
+              tabName="Juego"
+              iconName="dice"
+              label="Juego"
+              isSelected={activeTab === 'Juego'}
+              onPress={() => handleTabChange('Juego')}
+            />
+          <TabButton
+            tabName="Música"
+            iconName="musical-notes"
+            label="Música"
+            isSelected={activeTab === 'Música'}
+            onPress={() => handleTabChange('Música')}
+          />
+          <TabButton
+            tabName="Ordenes"
+            iconName="document-text"
+            label="Orden"
+            isSelected={activeTab === 'Ordenes'}
+            onPress={() => handleTabChange('Ordenes')}
+          />
+        </View>
 
-            if (route.name === 'Musica') {
-              iconName = focused ? 'musical-notes' : 'musical-notes-outline';
-            } else if (route.name === 'Juego') {
-              iconName = focused ? 'game-controller' : 'game-controller-outline';
-            } else if (route.name === 'Ordenes') {
-              iconName = focused ? 'restaurant' : 'restaurant-outline';
-            } else if (route.name === 'Ajustes') {
-              iconName = focused ? 'settings' : 'settings-outline';
-            }
-
-            return <Ionicons name={iconName} size={size} color={color} />;
-          },
-          tabBarActiveTintColor: 'white',
-          tabBarInactiveTintColor: 'rgba(255, 255, 255, 0.5)',
-          tabBarStyle: {
-            backgroundColor: Colors.fondo,
-            borderTopColor: 'rgba(255, 255, 255, 0.2)',
-            borderTopWidth: 1,
-            height: 60,
-            paddingBottom: 8,
-            paddingTop: 8,
-          },
-          tabBarLabelStyle: {
-            fontFamily: 'Onest-Regular',
-            fontSize: 12,
-            marginTop: 4,
-          },
-          headerShown: false,
-        })}
-      >
-        <Tab.Screen 
-          name="Musica" 
-          component={MusicaScreen}
-          options={{
-            title: 'Música',
-          }}
-        />
-        <Tab.Screen 
-          name="Juego" 
-          component={JuegoScreen}
-          options={{
-            title: 'Juegos',
-          }}
-        />
-        <Tab.Screen 
-          name="Ordenes" 
-          component={OrdenesScreen}
-          options={{
-            title: 'Órdenes',
-          }}
-        />
-        <Tab.Screen 
-          name="Ajustes" 
-          component={AjustesScreen}
-          options={{
-            title: 'Ajustes',
-          }}
-        />
-      </Tab.Navigator>
+        {/* Botón de Ajustes separado */}
+        <View style={styles.settingsContainer}>
+          <TouchableOpacity
+            style={[
+              styles.settingsButton,
+              activeTab === 'Ajustes' ? styles.settingsButtonSelected : styles.settingsButtonUnselected
+            ]}
+            onPress={() => handleTabChange('Ajustes')}
+          >
+            <Ionicons 
+              name="settings" 
+              size={20} 
+              color="white" 
+            />
+            <Text style={styles.tabLabel}>Ajustes</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      
       <StatusBar style="light" />
-    </>
+    </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.fondo,
+  },
+  screenContainer: {
+    flex: 1,
+  },
+  tabBar: {
+    flexDirection: 'row',
+    paddingHorizontal: 10,
+    paddingVertical: 10,
+    paddingBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  mainTabsContainer: {
+    flexDirection: 'row',
+    backgroundColor: Colors.tab,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    flex: 1,
+    marginRight: 10,
+  },
+  settingsContainer: {
+    // Contenedor para el botón de ajustes separado
+  },
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+  },
+  tabButtonSelected: {
+    backgroundColor: Colors.tab,
+    // backgroundColor: 'red',
+  },
+  tabButtonUnselected: {
+    backgroundColor: 'transparent',
+  },
+  settingsButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 10,
+    borderRadius: 99,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    minWidth: 80,
+  },
+  settingsButtonSelected: {
+      backgroundColor: Colors.tabSeleccionado,
+    },
+    settingsButtonUnselected: {
+      backgroundColor: Colors.tab,
+  },
+  tabLabel: {
+    color: 'white',
+    fontSize: 10,
+    fontFamily: 'Michroma-Regular',
+    marginTop: 4,
+    textAlign: 'center',
+  },
+});
 
 export default LayoutScreen;
