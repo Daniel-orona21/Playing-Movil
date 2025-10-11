@@ -8,7 +8,7 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 
-const QrScreen = () => {
+const QrScreen = ({ navigation }) => {
     const [fontsLoaded, fontError] = useFonts({
         'Michroma-Regular': require('../assets/fonts/Michroma-Regular.ttf'),
         'Onest-Regular': require('../assets/fonts/Onest-Regular.ttf'),
@@ -24,6 +24,9 @@ const QrScreen = () => {
     // Animation values for smooth transitions
     const normalOpacity = useRef(new Animated.Value(1)).current;
     const cameraOpacity = useRef(new Animated.Value(0)).current;
+    
+    // QR scanning state
+    const [scanned, setScanned] = useState(false);
 
       const onLayoutRootView = useCallback(async () => {
         if (fontsLoaded || fontError) {
@@ -68,6 +71,19 @@ const QrScreen = () => {
         })
       ]).start();
     };
+
+    // Handle QR code scanning
+    const handleBarcodeScanned = ({ type, data }) => {
+      if (!scanned) {
+        setScanned(true);
+        console.log('QR Code scanned:', data);
+        
+        // Navigate to layout after successful scan
+        setTimeout(() => {
+          navigation.navigate('Layout');
+        }, 1000);
+      }
+    };
     
       if (!fontsLoaded && !fontError) {
         return null;
@@ -88,6 +104,7 @@ const QrScreen = () => {
           style={styles.qrButton}
           onPress={() => {
             if (permission?.granted) {
+              setScanned(false);
               setIsCameraActive(true);
               activateCamera();
               setTimeout(() => setCameraReady(true), 100);
@@ -112,6 +129,10 @@ const QrScreen = () => {
               console.log('Camera is ready');
               setCameraReady(true);
             }}
+            barcodeScannerSettings={{
+              barcodeTypes: ['qr', 'pdf417'],
+            }}
+            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
           />
         )}
         <Text style={styles.titulo}>¡BIENVENIDO!</Text>
@@ -126,6 +147,7 @@ const QrScreen = () => {
           onPress={() => {
             setIsCameraActive(false);
             setCameraReady(false);
+            setScanned(false);
             deactivateCamera();
           }}
         >

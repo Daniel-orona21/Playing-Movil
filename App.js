@@ -8,6 +8,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import QrScreen from './screens/QrScreen';
+import LayoutScreen from './screens/LayoutScreen';
 
 const Stack = createStackNavigator();
 
@@ -55,6 +56,7 @@ export default function App() {
       <Stack.Navigator initialRouteName="Home">
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
+        <Stack.Screen name="Layout" component={LayoutScreen} options={{ headerShown: false }} />
       </Stack.Navigator>
     </NavigationContainer>
   );
