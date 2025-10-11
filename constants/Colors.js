@@ -1,8 +1,9 @@
 export const Colors = {
-  fondo: '#080808',
+  fondo: '#0D0D0D',
   // fondo: 'black',
-  tab: 'rgba(217, 217, 217, .15)',
-  tabSeleccionado: 'rgba(217, 217, 217, .25)',
+  tab: 'rgba(255, 255, 255, 0.04)',
+  tabSeleccionado: 'rgba(217, 217, 217, 0.1)',
+  tabBorde: 'rgba(217, 217, 217, 0.18)',
   contenedor: '#3131314d',
   primary: '#007BFF',
   secundario: '#2CDC6E',

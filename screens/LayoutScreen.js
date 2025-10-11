@@ -68,9 +68,9 @@ const LayoutScreen = ({ navigation }) => {
       <Ionicons 
         name={iconName} 
         size={20} 
-        color="white" 
+        color={isSelected ? Colors.secundario : 'white'} 
       />
-      <Text style={styles.tabLabel}>{label}</Text>
+      <Text style={[styles.tabLabel, { color: isSelected ? Colors.secundario : 'white' }]}>{label}</Text>
     </TouchableOpacity>
   );
 
@@ -117,9 +117,9 @@ const LayoutScreen = ({ navigation }) => {
             <Ionicons 
               name="settings" 
               size={20} 
-              color="white" 
+              color={activeTab === 'Ajustes' ? Colors.secundario : 'white'} 
             />
-            <Text style={styles.tabLabel}>Ajustes</Text>
+            <Text style={[styles.tabLabel, { color: activeTab === 'Ajustes' ? Colors.secundario : 'white' }]}>Ajustes</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -141,7 +141,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    paddingBottom: 15,
+    paddingBottom: 20,
     alignItems: 'center',
     justifyContent: 'space-between',
   },
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.tab,
     borderRadius: 99,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: Colors.tabBorde,
     paddingVertical: 4,
     paddingHorizontal: 4,
     flex: 1,
@@ -167,7 +167,7 @@ const styles = StyleSheet.create({
     borderRadius: 99,
   },
   tabButtonSelected: {
-    backgroundColor: Colors.tab,
+    backgroundColor: Colors.tabSeleccionado,
     // backgroundColor: 'red',
   },
   tabButtonUnselected: {
@@ -180,7 +180,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     borderRadius: 99,
     borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
+    borderColor: Colors.tabBorde,
     minWidth: 80,
   },
   settingsButtonSelected: {
@@ -190,7 +190,6 @@ const styles = StyleSheet.create({
       backgroundColor: Colors.tab,
   },
   tabLabel: {
-    color: 'white',
     fontSize: 10,
     fontFamily: 'Michroma-Regular',
     marginTop: 4,

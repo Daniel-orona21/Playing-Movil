@@ -54,8 +54,8 @@ function HomeScreen({ navigation }) {
 export default function App() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-      {/* <Stack.Navigator initialRouteName="Layout"> */}
+      {/* <Stack.Navigator initialRouteName="Home"> */}
+      <Stack.Navigator initialRouteName="Layout">
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
         <Stack.Screen 
@@ -78,6 +78,10 @@ export default function App() {
             ),
             headerStyle: {
               backgroundColor: Colors.fondo,
+              borderWidth: 0,
+              borderBottomWidth: 0,
+              elevation: 0,
+              shadowOpacity: 0,
             },
             headerTintColor: 'white'
           }} 
