@@ -159,7 +159,8 @@ const LayoutScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'black'
+    backgroundColor: 'black',
+    paddingTop: 60
   },
   backgroundImage: {
     position: 'absolute',
