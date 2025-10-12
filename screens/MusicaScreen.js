@@ -13,7 +13,9 @@ import ColaScreen from './musica/ColaScreen';
 import HistorialScreen from './musica/HistorialScreen';
 import BusquedaScreen from './musica/BusquedaScreen';
 
-const MusicaScreen = () => {
+const MusicaScreen = ({
+  onShowModalChange
+}) => {
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('../assets/fonts/Michroma-Regular.ttf'),
     'Onest-Regular': require('../assets/fonts/Onest-Regular.ttf'),
@@ -26,10 +28,16 @@ const MusicaScreen = () => {
   
   // Estado para la navegación
   const [selectedNav, setSelectedNav] = useState(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(1)).current; 
+
+  // Funciones para el modal de agregar canción
+  const handleOpenAddSongModal = (song) => {
+    if (onShowModalChange) {
+      onShowModalChange(true, song); 
+    }
+  };
+
   
-  // Estados para la duración de la canción
-  // Configura aquí los tiempos en formato minutos.segundos (ej: 1.24 = 1 minuto 24 segundos)
   const [currentTimeStr, setCurrentTimeStr] = useState("2"); // Tiempo actual
   const [totalDurationStr, setTotalDurationStr] = useState("3"); // Duración total
   const [isPlaying, setIsPlaying] = useState(false);
@@ -40,55 +48,44 @@ const MusicaScreen = () => {
     const minutes = parseInt(parts[0]);
     
     if (parts.length === 1) {
-      // Solo minutos (ej: "3" = 3 minutos)
       return minutes * 60;
     } else {
-      // Minutos y segundos (ej: "1.5" = 1 minuto 30 segundos)
       const secondsPart = parts[1];
       if (secondsPart.length === 1) {
-        // Un dígito después del punto = décimas de minuto (ej: "1.5" = 1.5 minutos = 90 segundos)
         const decimalMinutes = parseFloat(timeStr);
         return Math.round(decimalMinutes * 60);
       } else {
-        // Dos dígitos después del punto = segundos (ej: "1.24" = 1 minuto 24 segundos)
         const seconds = parseInt(secondsPart);
         return minutes * 60 + seconds;
       }
     }
   };
   
-  // Convertir a segundos totales para cálculos
   const currentTime = parseTimeToSeconds(currentTimeStr);
   const totalDuration = parseTimeToSeconds(totalDurationStr);
 
-  // Función para formatear tiempo (segundos a mm:ss)
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Función para calcular el progreso (0-1)
   const getProgress = () => {
     return currentTime / totalDuration;
   };
 
-  // Función para calcular el tiempo restante
   const getRemainingTime = () => {
     return totalDuration - currentTime;
   };
 
-  // Función para manejar la navegación con transición
   const handleNavPress = (navType) => {
     if (selectedNav === navType) {
-      // Si ya está seleccionado, deseleccionarlo con transición
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 0,
         useNativeDriver: true,
       }).start(() => {
         setSelectedNav(null);
-        // Fade in del contenido "sonando"
         Animated.timing(fadeAnim, {
           toValue: 1,
           duration: 200,
@@ -96,7 +93,6 @@ const MusicaScreen = () => {
         }).start();
       });
     } else {
-      // Seleccionar el nuevo con transición
       Animated.timing(fadeAnim, {
         toValue: 0,
         duration: 0,
@@ -113,10 +109,8 @@ const MusicaScreen = () => {
     }
   };
 
-  // Función para renderizar el contenido según la navegación seleccionada
   const renderContent = () => {
     if (selectedNav === null) {
-      // Mostrar contenido de "sonando" cuando no hay nada seleccionado
       return (
         <View style={styles.sonando}>
           <BlurView intensity={10} style={styles.portada}>
@@ -182,7 +176,6 @@ const MusicaScreen = () => {
       );
     }
 
-    // Mostrar contenido según la navegación seleccionada
     switch (selectedNav) {
       case 'letras':
         return <LetrasScreen />;
@@ -191,7 +184,7 @@ const MusicaScreen = () => {
       case 'historial':
         return <HistorialScreen />;
       case 'busqueda':
-        return <BusquedaScreen />;
+        return <BusquedaScreen onOpenAddSongModal={handleOpenAddSongModal} />;
       default:
         return null;
     }
@@ -204,7 +197,6 @@ const MusicaScreen = () => {
     return `${mins}.${secs.toString().padStart(2, '0')}`;
   };
 
-  // Simular reproducción (para demo)
   useEffect(() => {
     let interval;
     if (isPlaying && currentTime < totalDuration) {
@@ -212,7 +204,6 @@ const MusicaScreen = () => {
         const newTime = currentTime + 1;
         setCurrentTimeStr(secondsToTimeStr(newTime));
         
-        // Verificar si llegamos al final
         if (newTime >= totalDuration) {
           setIsPlaying(false);
         }

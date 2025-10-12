@@ -3,6 +3,7 @@ export const Colors = {
   // fondo: 'black',
   fondo: 'rgba(0, 0, 0, 0.81)',
   tab: 'rgba(255, 255, 255, 0.04)',
+  botonSecundario: 'rgba(0, 0, 0, 0.05)',
   tabSeleccionado: 'rgba(217, 217, 217, 0.1)',
   btnSeleccionado: 'rgb(224, 224, 224)',
   tabBorde: 'rgba(217, 217, 217, 0.18)',

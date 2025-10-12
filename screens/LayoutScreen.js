@@ -9,17 +9,49 @@ import OrdenesScreen from './OrdenesScreen';
 import AjustesScreen from './AjustesScreen';
 import { Colors } from '../constants/Colors';
 import { BlurView } from 'expo-blur';
+import Toast from '../components/Toast'; 
 
 const Tab = createBottomTabNavigator();
 
 const LayoutScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = React.useState('Música');
   const [displayedTab, setDisplayedTab] = React.useState('Música');
-  const fadeAnim = React.useRef(new Animated.Value(0)).current; // Inicia invisible
-  const imageFadeAnim = React.useRef(new Animated.Value(0)).current; // Inicia invisible
+  const fadeAnim = React.useRef(new Animated.Value(0)).current;
+  const imageFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [showMusicaAddSongModal, setShowMusicaAddSongModal] = React.useState(false);
+  const [selectedSongForModal, setSelectedSongForModal] = React.useState(null);
+  const overlayFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const [showToast, setShowToast] = React.useState(false);
+  const [toastMessage, setToastMessage] = React.useState('');
+
+  const handleShowMusicaAddSongModalChange = (isVisible, songData) => {
+    setShowMusicaAddSongModal(isVisible);
+    setSelectedSongForModal(songData);
+  };
+
+  const handleCancelAddSongGlobal = () => {
+    setShowMusicaAddSongModal(false);
+    setSelectedSongForModal(null);
+  };
+
+  const handleShowToast = (message) => {
+    setToastMessage(message);
+    setShowToast(true);
+  };
+
+  const handleHideToast = () => {
+    setShowToast(false);
+    setToastMessage('');
+  };
+
+  const handleAddSongGlobal = () => {
+    console.log('Simulando agregar canción:', selectedSongForModal);
+    handleShowToast(`"${selectedSongForModal ? selectedSongForModal.title : 'La canción'}" ha sido agregada.`);
+    setShowMusicaAddSongModal(false);
+    setSelectedSongForModal(null);
+  };
 
   React.useEffect(() => {
-    // Animación de fade in inicial para el contenido y la imagen (si aplica)
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -27,23 +59,28 @@ const LayoutScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
       Animated.timing(imageFadeAnim, {
-        toValue: activeTab === 'Música' ? 1 : 0, // La imagen fade in si activeTab es Música
+        toValue: activeTab === 'Música' ? 1 : 0, 
         duration: 100,
         useNativeDriver: true,
       }),
     ]).start();
-  }, []); // El array vacío asegura que se ejecuta solo una vez al montar el componente
+  }, []); 
+
+  React.useEffect(() => {
+    Animated.timing(overlayFadeAnim, {
+      toValue: showMusicaAddSongModal ? 1 : 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [showMusicaAddSongModal, overlayFadeAnim]);
 
   const handleTabChange = (newTab) => {
-    // No permitir seleccionar el tab que ya está activo
     if (activeTab === newTab) {
       return;
     }
     
-    // Actualizar el tab activo inmediatamente para que el botón se marque
     setActiveTab(newTab);
     
-    // Animación de fade out para el contenido y la imagen de fondo
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -51,16 +88,14 @@ const LayoutScreen = ({ navigation }) => {
         useNativeDriver: true,
       }),
       Animated.timing(imageFadeAnim, {
-        toValue: 0, // Siempre fade out la imagen en esta fase
+        toValue: 0,
         duration: 0,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Cambiar el tab activo y el contenido visible cuando están invisibles
       setActiveTab(newTab);
       setDisplayedTab(newTab);
 
-      // Animación de fade in para el nuevo contenido y la imagen (si aplica)
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
@@ -68,7 +103,7 @@ const LayoutScreen = ({ navigation }) => {
           useNativeDriver: true,
         }),
         Animated.timing(imageFadeAnim, {
-          toValue: newTab === 'Música' ? 1 : 0, // La imagen fade in si va a Música, permanece oculta si no
+          toValue: newTab === 'Música' ? 1 : 0, 
           duration: 200,
           useNativeDriver: true,
         }),
@@ -79,7 +114,7 @@ const LayoutScreen = ({ navigation }) => {
   const renderScreen = () => {
     switch (displayedTab) {
       case 'Música':
-        return <MusicaScreen />;
+        return <MusicaScreen onShowModalChange={handleShowMusicaAddSongModalChange} />;
       case 'Juego':
         return <JuegoScreen />;
       case 'Ordenes':
@@ -177,6 +212,33 @@ const LayoutScreen = ({ navigation }) => {
       </BlurView>
       
       <StatusBar style="light" />
+
+      <Animated.View 
+        style={[styles.modalOverlay, { opacity: overlayFadeAnim }]} 
+        pointerEvents={showMusicaAddSongModal ? 'auto' : 'none'} 
+      >
+        <BlurView intensity={40} tint='dark' style={[StyleSheet.absoluteFillObject, styles.modalOverlayCentered]}> 
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Agregar canción</Text>
+            {selectedSongForModal && (
+              <Text style={styles.modalMessage}>¿Agregar "{selectedSongForModal.title}" a la lista de reproducción?</Text>
+            )}
+            {!selectedSongForModal && (
+              <Text style={styles.modalMessage}>¿Agregar canción a la lista de reproduccion?</Text>
+            )}
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity onPress={handleCancelAddSongGlobal} style={styles.modalButtonCancel}>
+                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleAddSongGlobal} style={styles.modalButtonAdd}>
+                <Text style={styles.modalButtonTextAdd}>Agregar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Animated.View>
+
+      <Toast message={toastMessage} visible={showToast} onHide={handleHideToast} />
     </View>
   );
 };
@@ -272,6 +334,68 @@ const styles = StyleSheet.create({
     fontFamily: 'Michroma-Regular',
     marginTop: 4,
     textAlign: 'center',
+  },
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  modalOverlayCentered: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 30,
+    padding: 20,
+    display: 'flex',
+    flexDirection: 'column',
+    gap: 30,
+    width: '80%',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontFamily: 'Onest-Bold',
+    color: 'black',
+  },
+  modalMessage: {
+    fontSize: 16,
+    fontFamily: 'Onest-Regular',
+    color: Colors.texto,
+    textAlign: 'center',
+  },
+  modalButtonsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
+  },
+  modalButtonCancel: {
+    backgroundColor: Colors.botonSecundario,
+    borderRadius: 99,
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+  },
+  modalButtonTextCancel: {
+    color: 'black',
+    fontSize: 16,
+    fontFamily: 'Onest-Regular',
+  },
+  modalButtonAdd: {
+    backgroundColor: 'black',
+    borderRadius: 99,
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+  },
+  modalButtonTextAdd: {
+    color: 'white',
+    fontSize: 16,
+    fontFamily: 'Onest-Regular',
   },
 });
 
