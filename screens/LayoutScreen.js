@@ -91,6 +91,16 @@ const LayoutScreen = ({ navigation }) => {
     }
   };
 
+  const contentScale = fadeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.96, 1],
+  });
+
+  const contentOpacity = fadeAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, 1],
+  });
+
   const TabButton = ({ tabName, iconName, label, isSelected, onPress }) => (
     <TouchableOpacity
       style={[
@@ -117,7 +127,7 @@ const LayoutScreen = ({ navigation }) => {
       />
       
       <BlurView intensity={0} style={styles.blurContainer}>
-        <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
+        <Animated.View style={[styles.screenContainer, { opacity: contentOpacity, transform: [{ scale: contentScale }] }]}>
           {renderScreen()}
         </Animated.View>
 
