@@ -8,6 +8,7 @@ import { useCallback, useState, useEffect } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
+import AjustesScreen from './AjustesScreen';
 
 const MusicaScreen = () => {
   const [fontsLoaded, fontError] = useFonts({
@@ -108,7 +109,7 @@ const MusicaScreen = () => {
     <View style={styles.container} onLayout={onLayoutRootView}>
       <View style={styles.contenido}>
         <View style={styles.secciones}>
-        <View style={styles.sonando}>
+        {/* <View style={styles.sonando}>
           <BlurView intensity={10} style={styles.portada}>
             <MaterialIcons name="music-note" size={44} color="gray" />
           </BlurView>
@@ -146,7 +147,6 @@ const MusicaScreen = () => {
           </View>
 
           <View style={styles.duracion}>
-            {/* Barra de progreso */}
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBar}>
                 <View 
@@ -163,14 +163,13 @@ const MusicaScreen = () => {
                 />
               </View>
               
-              {/* Tiempos debajo de la barra */}
               <View style={styles.tiemposContainer}>
                 <Text style={styles.tiempoTexto}>{formatTime(currentTime)}</Text>
                 <Text style={styles.tiempoTexto}>-{formatTime(getRemainingTime())}</Text>
               </View>
             </View>
           </View>
-        </View>
+        </View> */}
         </View>
         <View style={styles.navegacion}>
           <TouchableOpacity style={styles.navButton}>
@@ -205,7 +204,8 @@ const styles = StyleSheet.create({
   },
   secciones: {
     display: 'flex',
-    flex: 1
+    flex: 1,
+    // backgroundColor: 'blue'
   },
   sonando: {
     alignItems: 'center',
@@ -283,10 +283,10 @@ const styles = StyleSheet.create({
   },
   progressThumb: {
     position: 'absolute',
-    top: -6,
-    width: 15,
-    height: 15,
-    backgroundColor: 'white',
+    top: -3.5,
+    width: 10,
+    height: 10,
+    backgroundColor: Colors.secundario,
     borderRadius: 10,
     marginLeft: -10,
   },
