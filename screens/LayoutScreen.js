@@ -16,6 +16,7 @@ const LayoutScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = React.useState('Música');
   const [displayedTab, setDisplayedTab] = React.useState('Música');
   const fadeAnim = React.useRef(new Animated.Value(1)).current;
+  const imageFadeAnim = React.useRef(new Animated.Value(1)).current;
 
   const handleTabChange = (newTab) => {
     // No permitir seleccionar el tab que ya está activo
@@ -41,6 +42,23 @@ const LayoutScreen = ({ navigation }) => {
         useNativeDriver: true,
       }).start();
     });
+
+    // Animación de la imagen de fondo
+    if (newTab === 'Música') {
+      // Si va a música, hacer fade in de la imagen
+      Animated.timing(imageFadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    } else {
+      // Si va a otro tab, hacer fade out de la imagen
+      Animated.timing(imageFadeAnim, {
+        toValue: 0,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+    }
   };
 
   const renderScreen = () => {
@@ -77,22 +95,19 @@ const LayoutScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Imagen de fondo */}
-      <Image 
-        source={require('../assets/imagenes/logo-6.png')} 
-        style={styles.backgroundImage}
+      <Animated.Image 
+        source={require('../assets/imagenes/logo-7.png')} 
+        style={[styles.backgroundImage, { opacity: imageFadeAnim }]}
         resizeMode="cover"
       />
       
-      {/* BlurView sobre la imagen */}
       <BlurView intensity={0} style={styles.blurContainer}>
         <Animated.View style={[styles.screenContainer, { opacity: fadeAnim }]}>
           {renderScreen()}
         </Animated.View>
 
-        {/* TabBar dentro del blur */}
         <View style={styles.tabBar}>
-        <View style={styles.mainTabsContainer}>
+        <BlurView intensity={15} style={styles.mainTabsContainer}>
             <TabButton
               tabName="Juego"
               iconName="dice"
@@ -114,10 +129,10 @@ const LayoutScreen = ({ navigation }) => {
             isSelected={activeTab === 'Ordenes'}
             onPress={() => handleTabChange('Ordenes')}
           />
-        </View>
+        </BlurView>
 
         {/* Botón de Ajustes separado */}
-        <View style={styles.settingsContainer}>
+        <BlurView intensity={15} style={styles.settingsContainer}>
           <TouchableOpacity
             style={[
               styles.settingsButton,
@@ -132,7 +147,7 @@ const LayoutScreen = ({ navigation }) => {
             />
             <Text style={[styles.tabLabel, { color: activeTab === 'Ajustes' ? Colors.secundario : 'white' }]}>Ajustes</Text>
           </TouchableOpacity>
-        </View>
+        </BlurView>
       </View>
       </BlurView>
       
@@ -144,19 +159,20 @@ const LayoutScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: 'black'
   },
   backgroundImage: {
     position: 'absolute',
     top: 0,
     transform: [
-      {scale: 1.3}
+      {scale: 1.1}
     ],
     left: 0,
     right: 0,
     bottom: 0,
-    width: '100%',
-    height: '100%',
-    zIndex: -1,
+    width: '110%',
+    height: '150%',
+    // zIndex: -1,
   },
   blurContainer: {
     flex: 1,
@@ -188,8 +204,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     flex: 1,
     marginRight: 10,
+    overflow: 'hidden'
   },
   settingsContainer: {
+    borderRadius: 99,
+    overflow: 'hidden',
   },
   tabButton: {
     flex: 1,

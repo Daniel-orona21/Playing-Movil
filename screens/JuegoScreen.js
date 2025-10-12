@@ -26,7 +26,6 @@ const JuegoScreen = () => {
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
       <Text style={styles.titulo}>JUEGOS</Text>
-      <StatusBar style="light" />
     </View>
   );
 };
