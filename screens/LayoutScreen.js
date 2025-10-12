@@ -15,8 +15,24 @@ const Tab = createBottomTabNavigator();
 const LayoutScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = React.useState('Música');
   const [displayedTab, setDisplayedTab] = React.useState('Música');
-  const fadeAnim = React.useRef(new Animated.Value(1)).current;
-  const imageFadeAnim = React.useRef(new Animated.Value(1)).current;
+  const fadeAnim = React.useRef(new Animated.Value(0)).current; // Inicia invisible
+  const imageFadeAnim = React.useRef(new Animated.Value(0)).current; // Inicia invisible
+
+  React.useEffect(() => {
+    // Animación de fade in inicial para el contenido y la imagen (si aplica)
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(imageFadeAnim, {
+        toValue: activeTab === 'Música' ? 1 : 0, // La imagen fade in si activeTab es Música
+        duration: 100,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, []); // El array vacío asegura que se ejecuta solo una vez al montar el componente
 
   const handleTabChange = (newTab) => {
     // No permitir seleccionar el tab que ya está activo
@@ -24,41 +40,40 @@ const LayoutScreen = ({ navigation }) => {
       return;
     }
     
-    // Cambiar el tab inmediatamente (sin animación)
+    // Actualizar el tab activo inmediatamente para que el botón se marque
     setActiveTab(newTab);
     
-    // Animación del contenido: fade out, cambio de contenido, fade in
-    Animated.timing(fadeAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: true,
-    }).start(() => {
-      // Cambiar el contenido cuando está invisible
-      setDisplayedTab(newTab);
-      // Fade in del nuevo contenido
+    // Animación de fade out para el contenido y la imagen de fondo
+    Animated.parallel([
       Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 150,
-        useNativeDriver: true,
-      }).start();
-    });
-
-    // Animación de la imagen de fondo
-    if (newTab === 'Música') {
-      // Si va a música, hacer fade in de la imagen
-      Animated.timing(imageFadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      // Si va a otro tab, hacer fade out de la imagen
-      Animated.timing(imageFadeAnim, {
         toValue: 0,
-        duration: 300,
+        duration: 0,
         useNativeDriver: true,
-      }).start();
-    }
+      }),
+      Animated.timing(imageFadeAnim, {
+        toValue: 0, // Siempre fade out la imagen en esta fase
+        duration: 0,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      // Cambiar el tab activo y el contenido visible cuando están invisibles
+      setActiveTab(newTab);
+      setDisplayedTab(newTab);
+
+      // Animación de fade in para el nuevo contenido y la imagen (si aplica)
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(imageFadeAnim, {
+          toValue: newTab === 'Música' ? 1 : 0, // La imagen fade in si va a Música, permanece oculta si no
+          duration: 200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    });
   };
 
   const renderScreen = () => {

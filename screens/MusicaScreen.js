@@ -1,14 +1,17 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '../constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback, useState, useEffect } from 'react';
+import { useCallback, useState, useEffect, useRef } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { BlurView } from 'expo-blur';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import AjustesScreen from './AjustesScreen';
+import LetrasScreen from './musica/LetrasScreen';
+import ColaScreen from './musica/ColaScreen';
+import HistorialScreen from './musica/HistorialScreen';
+import BusquedaScreen from './musica/BusquedaScreen';
 
 const MusicaScreen = () => {
   const [fontsLoaded, fontError] = useFonts({
@@ -20,6 +23,10 @@ const MusicaScreen = () => {
   // Estados para los botones
   const [isLiked, setIsLiked] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
+  
+  // Estado para la navegación
+  const [selectedNav, setSelectedNav] = useState(null);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   
   // Estados para la duración de la canción
   // Configura aquí los tiempos en formato minutos.segundos (ej: 1.24 = 1 minuto 24 segundos)
@@ -71,45 +78,47 @@ const MusicaScreen = () => {
     return totalDuration - currentTime;
   };
 
-  // Función para convertir segundos a formato "minutos.segundos"
-  const secondsToTimeStr = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}.${secs.toString().padStart(2, '0')}`;
+  // Función para manejar la navegación con transición
+  const handleNavPress = (navType) => {
+    if (selectedNav === navType) {
+      // Si ya está seleccionado, deseleccionarlo con transición
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 0,
+        useNativeDriver: true,
+      }).start(() => {
+        setSelectedNav(null);
+        // Fade in del contenido "sonando"
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
+    } else {
+      // Seleccionar el nuevo con transición
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 0,
+        useNativeDriver: true,
+      }).start(() => {
+        setSelectedNav(navType);
+        // Fade in del nuevo contenido
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }).start();
+      });
+    }
   };
 
-  // Simular reproducción (para demo)
-  useEffect(() => {
-    let interval;
-    if (isPlaying && currentTime < totalDuration) {
-      interval = setInterval(() => {
-        const newTime = currentTime + 1;
-        setCurrentTimeStr(secondsToTimeStr(newTime));
-        
-        // Verificar si llegamos al final
-        if (newTime >= totalDuration) {
-          setIsPlaying(false);
-        }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, currentTime, totalDuration]);
-
-  const onLayoutRootView = useCallback(async () => {
-    if (fontsLoaded || fontError) {
-      await SplashScreen.hideAsync();
-    }
-  }, [fontsLoaded, fontError]);
-
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
-
-  return (
-    <View style={styles.container} onLayout={onLayoutRootView}>
-      <View style={styles.contenido}>
-        <View style={styles.secciones}>
-        {/* <View style={styles.sonando}>
+  // Función para renderizar el contenido según la navegación seleccionada
+  const renderContent = () => {
+    if (selectedNav === null) {
+      // Mostrar contenido de "sonando" cuando no hay nada seleccionado
+      return (
+        <View style={styles.sonando}>
           <BlurView intensity={10} style={styles.portada}>
             <MaterialIcons name="music-note" size={44} color="gray" />
           </BlurView>
@@ -169,23 +178,110 @@ const MusicaScreen = () => {
               </View>
             </View>
           </View>
-        </View> */}
+        </View>
+      );
+    }
+
+    // Mostrar contenido según la navegación seleccionada
+    switch (selectedNav) {
+      case 'letras':
+        return <LetrasScreen />;
+      case 'cola':
+        return <ColaScreen />;
+      case 'historial':
+        return <HistorialScreen />;
+      case 'busqueda':
+        return <BusquedaScreen />;
+      default:
+        return null;
+    }
+  };
+
+  // Función para convertir segundos a formato "minutos.segundos"
+  const secondsToTimeStr = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}.${secs.toString().padStart(2, '0')}`;
+  };
+
+  // Simular reproducción (para demo)
+  useEffect(() => {
+    let interval;
+    if (isPlaying && currentTime < totalDuration) {
+      interval = setInterval(() => {
+        const newTime = currentTime + 1;
+        setCurrentTimeStr(secondsToTimeStr(newTime));
+        
+        // Verificar si llegamos al final
+        if (newTime >= totalDuration) {
+          setIsPlaying(false);
+        }
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isPlaying, currentTime, totalDuration]);
+
+  const onLayoutRootView = useCallback(async () => {
+    if (fontsLoaded || fontError) {
+      await SplashScreen.hideAsync();
+    }
+  }, [fontsLoaded, fontError]);
+
+  if (!fontsLoaded && !fontError) {
+    return null;
+  }
+
+  return (
+    <View style={styles.container} onLayout={onLayoutRootView}>
+      <View style={styles.contenido}>
+        <View style={styles.secciones}>
+          <Animated.View style={{ opacity: fadeAnim, flex: 1 }}>
+            {renderContent()}
+          </Animated.View>
         </View>
         <View style={styles.navegacion}>
-          <TouchableOpacity style={styles.navButton}>
-          <MaterialIcons name="lyrics" size={19} color="white" />
+          <TouchableOpacity 
+            style={[styles.navButton, selectedNav === 'letras' && styles.navButtonSelected]}
+            onPress={() => handleNavPress('letras')}
+          >
+            <MaterialIcons 
+              name="lyrics" 
+              size={19} 
+              color={selectedNav === 'letras' ? Colors.secundario : 'white'} 
+            />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.navButton}>
-          <MaterialIcons name="playlist-play" size={20} color="white" />
+          <TouchableOpacity 
+            style={[styles.navButton, selectedNav === 'cola' && styles.navButtonSelected]}
+            onPress={() => handleNavPress('cola')}
+          >
+            <MaterialIcons 
+              name="playlist-play" 
+              size={20} 
+              color={selectedNav === 'cola' ? Colors.secundario : 'white'} 
+            />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="time-outline" size={20} color="white" />
+          <TouchableOpacity 
+            style={[styles.navButton, selectedNav === 'historial' && styles.navButtonSelected]}
+            onPress={() => handleNavPress('historial')}
+          >
+            <Ionicons 
+              name="time-outline" 
+              size={20} 
+              color={selectedNav === 'historial' ? Colors.secundario : 'white'} 
+            />
           </TouchableOpacity>
           
-          <TouchableOpacity style={styles.navButton}>
-            <Ionicons name="search-outline" size={20} color="white" />
+          <TouchableOpacity 
+            style={[styles.navButton, selectedNav === 'busqueda' && styles.navButtonSelected]}
+            onPress={() => handleNavPress('busqueda')}
+          >
+            <Ionicons 
+              name="search-outline" 
+              size={20} 
+              color={selectedNav === 'busqueda' ? Colors.secundario : 'white'} 
+            />
           </TouchableOpacity>
         </View>
       </View>
@@ -205,7 +301,8 @@ const styles = StyleSheet.create({
   secciones: {
     display: 'flex',
     flex: 1,
-    // backgroundColor: 'blue'
+    // backgroundColor: 'blue',
+    padding: 30
   },
   sonando: {
     alignItems: 'center',
@@ -213,7 +310,6 @@ const styles = StyleSheet.create({
     flexDirection: 'column',
     display: 'flex',
     flex: 1,
-    padding: 30
   },
   portada: {
     display: 'flex',
@@ -314,8 +410,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     padding: 10,
     borderRadius: 99,
-    // backgroundColor: 'transparente',
-    // backgroundColor: Colors.btnSeleccionado,
+  },
+  navButtonSelected: {
+    backgroundColor: Colors.tabSeleccionado,
   },
   titulo: {
     fontFamily: 'Michroma-Regular',
