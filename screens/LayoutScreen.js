@@ -225,13 +225,6 @@ const LayoutScreen = ({ navigation }) => {
 
         <View style={styles.tabBar}>
         <BlurView intensity={15} style={styles.mainTabsContainer}>
-            <TabButton
-              tabName="Juego"
-              iconName="dice"
-              label="Juego"
-              isSelected={activeTab === 'Juego'}
-              onPress={() => handleTabChange('Juego')}
-            />
           <TabButton
             tabName="Música"
             iconName="musical-notes"
@@ -239,6 +232,13 @@ const LayoutScreen = ({ navigation }) => {
             isSelected={activeTab === 'Música'}
             onPress={() => handleTabChange('Música')}
           />
+            <TabButton
+              tabName="Juego"
+              iconName="dice"
+              label="Juego"
+              isSelected={activeTab === 'Juego'}
+              onPress={() => handleTabChange('Juego')}
+            />
           <TabButton
             tabName="Ordenes"
             iconName="document-text"

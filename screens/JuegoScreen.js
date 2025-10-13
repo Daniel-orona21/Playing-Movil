@@ -25,7 +25,11 @@ const JuegoScreen = () => {
 
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
-      <Text style={styles.titulo}>JUEGOS</Text>
+      <View style={styles.ImgSin}>
+          <Ionicons name="game-controller" size={104} color="white" />
+        </View>
+      <Text style={styles.titulo}>No hay ningún juego activo</Text>
+      <Text style={styles.subtitulo}>Espera a que el restaurante inicie la actividad para participar</Text>
     </View>
   );
 };
@@ -33,14 +37,37 @@ const JuegoScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20
+  },
+  ImgSin: {
+    aspectRatio: 1/1,
+    width: '70%',
+    backgroundColor: Colors.contenedor,
+    opacity: .5,
+    position: 'relative',
+    boxSizing: 'border-box',
+    borderRadius: 30,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   titulo: {
     fontFamily: 'Michroma-Regular',
     fontWeight: '900',
-    fontSize: 24,
+    fontSize: 18,
     color: 'white',
     textAlign: 'center',
-    marginBottom: 20,
+    paddingHorizontal: 10,
+  },
+  subtitulo: {
+    fontFamily: 'Michroma-Regular',
+    fontWeight: '900',
+    fontSize: 14,
+    color: Colors.textoSecundario,
+    textAlign: 'center',
+    paddingHorizontal: 10,
   },
 });
 
