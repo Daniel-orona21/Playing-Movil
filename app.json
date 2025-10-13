@@ -28,7 +28,8 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-camera"
+      "expo-camera",
+      "expo-web-browser"
     ]
   }
 }

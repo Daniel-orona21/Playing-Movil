@@ -1,5 +1,6 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 import { Colors } from '../constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
@@ -20,6 +21,22 @@ const OrdenesScreen = () => {
     }
   }, [fontsLoaded, fontError]);
 
+  const abrirMenu = async () => {
+    const url = 'https://vips.com.mx/menu/';
+    
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+        controlsColor: '#ffffff',
+        showTitle: true,
+        enableBarCollapsing: false,
+        showInRecents: false
+      });
+    } catch (error) {
+      Alert.alert('Error', 'Ocurrió un error al abrir el menú');
+    }
+  };
+
   if (!fontsLoaded && !fontError) {
     return null;
   }
@@ -35,7 +52,7 @@ const OrdenesScreen = () => {
             style={styles.cubiertos}
           />
         </View>
-        <TouchableOpacity style={styles.boton1}>
+        <TouchableOpacity style={styles.boton1} onPress={abrirMenu}>
           <MaterialCommunityIcons style={styles.icono} name="book-open" size={24} color="rgba(255, 255, 255, 0.56)" />
           <Text style={styles.textoBtn}>Ver el menú</Text>
         </TouchableOpacity>
