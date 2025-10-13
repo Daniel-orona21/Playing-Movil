@@ -10,7 +10,8 @@ import OrdenesScreen from './OrdenesScreen';
 import AjustesScreen from './AjustesScreen';
 import { Colors } from '../constants/Colors';
 import { BlurView } from 'expo-blur';
-import Toast from '../components/Toast'; 
+import Toast from '../components/Toast';
+import * as Haptics from 'expo-haptics'; 
 
 const Tab = createBottomTabNavigator();
 
@@ -24,18 +25,28 @@ const LayoutScreen = ({ navigation }) => {
   const [showMeseroModal, setShowMeseroModal] = React.useState(false);
   const [meseroConfirmCallback, setMeseroConfirmCallback] = React.useState(null);
   const [showCuentaModal, setShowCuentaModal] = React.useState(false);
+  const [showExitRestaurantModal, setShowExitRestaurantModal] = React.useState(false);
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [exitRestaurantCallback, setExitRestaurantCallback] = React.useState(null);
+  const [logoutCallback, setLogoutCallback] = React.useState(null);
   const overlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const meseroOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const cuentaOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const exitRestaurantOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const logoutOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showToast, setShowToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
 
   const handleShowMusicaAddSongModalChange = (isVisible, songData) => {
+    if (isVisible) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setShowMusicaAddSongModal(isVisible);
     setSelectedSongForModal(songData);
   };
 
   const handleCancelAddSongGlobal = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowMusicaAddSongModal(false);
     setSelectedSongForModal(null);
   };
@@ -51,6 +62,7 @@ const LayoutScreen = ({ navigation }) => {
   };
 
   const handleAddSongGlobal = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     console.log('Simulando agregar canción:', selectedSongForModal);
     handleShowToast(`"${selectedSongForModal ? selectedSongForModal.title : 'La canción'}" ha sido agregada.`);
     setShowMusicaAddSongModal(false);
@@ -58,6 +70,9 @@ const LayoutScreen = ({ navigation }) => {
   };
 
   const handleShowMeseroModalChange = (isVisible, onConfirmCallback) => {
+    if (isVisible) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
     setShowMeseroModal(isVisible);
     if (onConfirmCallback) {
       setMeseroConfirmCallback(() => onConfirmCallback);
@@ -65,10 +80,12 @@ const LayoutScreen = ({ navigation }) => {
   };
 
   const handleCancelMesero = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     setShowMeseroModal(false);
   };
 
   const handleConfirmMesero = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setShowMeseroModal(false);
     handleShowToast('¡Mesero notificado! Llegará pronto a tu mesa');
     
@@ -90,6 +107,59 @@ const LayoutScreen = ({ navigation }) => {
   const handleSalir = () => {
     setShowCuentaModal(false);
     navigation.navigate('Qr');
+  };
+
+  // Handlers para modales de AjustesScreen
+  const handleShowExitRestaurantModalChange = (isVisible, onConfirmCallback) => {
+    if (isVisible) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setShowExitRestaurantModal(isVisible);
+    if (onConfirmCallback) {
+      setExitRestaurantCallback(() => onConfirmCallback);
+    }
+  };
+
+  const handleCancelExitRestaurant = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowExitRestaurantModal(false);
+  };
+
+  const handleConfirmExitRestaurant = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowExitRestaurantModal(false);
+    
+    // Ejecutar callback si existe
+    if (exitRestaurantCallback) {
+      exitRestaurantCallback();
+      setExitRestaurantCallback(null);
+    }
+  };
+
+  const handleShowLogoutModalChange = (isVisible, onConfirmCallback) => {
+    if (isVisible) {
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    }
+    setShowLogoutModal(isVisible);
+    if (onConfirmCallback) {
+      setLogoutCallback(() => onConfirmCallback);
+    }
+  };
+
+  const handleCancelLogout = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    setShowLogoutModal(false);
+  };
+
+  const handleConfirmLogout = () => {
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setShowLogoutModal(false);
+    
+    // Ejecutar callback si existe
+    if (logoutCallback) {
+      logoutCallback();
+      setLogoutCallback(null);
+    }
   };
 
   React.useEffect(() => {
@@ -130,6 +200,22 @@ const LayoutScreen = ({ navigation }) => {
       useNativeDriver: true,
     }).start();
   }, [showCuentaModal, cuentaOverlayFadeAnim]);
+
+  React.useEffect(() => {
+    Animated.timing(exitRestaurantOverlayFadeAnim, {
+      toValue: showExitRestaurantModal ? 1 : 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [showExitRestaurantModal, exitRestaurantOverlayFadeAnim]);
+
+  React.useEffect(() => {
+    Animated.timing(logoutOverlayFadeAnim, {
+      toValue: showLogoutModal ? 1 : 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [showLogoutModal, logoutOverlayFadeAnim]);
 
   const handleTabChange = (newTab) => {
     if (activeTab === newTab) {
@@ -177,7 +263,11 @@ const LayoutScreen = ({ navigation }) => {
       case 'Ordenes':
         return <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} onShowCuentaModalChange={handleShowCuentaModalChange} />;
       case 'Ajustes':
-        return <AjustesScreen />;
+        return <AjustesScreen 
+          navigation={navigation}
+          onShowExitRestaurantModalChange={handleShowExitRestaurantModalChange}
+          onShowLogoutModalChange={handleShowLogoutModalChange}
+        />;
       default:
         return <JuegoScreen />;
     }
@@ -185,7 +275,7 @@ const LayoutScreen = ({ navigation }) => {
 
   const contentScale = fadeAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [0.96, 1],
+    outputRange: [0.97, 1],
   });
 
   const contentOpacity = fadeAnim.interpolate({
@@ -338,6 +428,48 @@ const LayoutScreen = ({ navigation }) => {
         </BlurView>
       </Animated.View>
 
+      {/* Modal de confirmación para salir del restaurante */}
+      <Animated.View 
+        style={[styles.modalOverlay, { opacity: exitRestaurantOverlayFadeAnim }]} 
+        pointerEvents={showExitRestaurantModal ? 'auto' : 'none'} 
+      >
+        <BlurView intensity={40} tint='dark' style={[StyleSheet.absoluteFillObject, styles.modalOverlayCentered]}> 
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Salir del restaurante</Text>
+            <Text style={styles.modalMessage}>¿Estás seguro de que quieres salir del restaurante? Podrás volver a escanear el código QR para regresar.</Text>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity onPress={handleCancelExitRestaurant} style={styles.modalButtonCancel}>
+                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleConfirmExitRestaurant} style={styles.modalButtonAdd}>
+                <Text style={styles.modalButtonTextAdd}>Salir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Animated.View>
+
+      {/* Modal de confirmación para cerrar sesión */}
+      <Animated.View 
+        style={[styles.modalOverlay, { opacity: logoutOverlayFadeAnim }]} 
+        pointerEvents={showLogoutModal ? 'auto' : 'none'} 
+      >
+        <BlurView intensity={40} tint='dark' style={[StyleSheet.absoluteFillObject, styles.modalOverlayCentered]}> 
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Cerrar sesión</Text>
+            <Text style={styles.modalMessage}>¿Estás seguro de que quieres cerrar sesión? Tendrás que volver a iniciar sesión para acceder a la aplicación.</Text>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity onPress={handleCancelLogout} style={styles.modalButtonCancel}>
+                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleConfirmLogout} style={styles.modalButtonAdd}>
+                <Text style={styles.modalButtonTextAdd}>Cerrar sesión</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Animated.View>
+
       <Toast message={toastMessage} visible={showToast} onHide={handleHideToast} />
     </View>
   );
@@ -455,7 +587,7 @@ const styles = StyleSheet.create({
     padding: 20,
     display: 'flex',
     flexDirection: 'column',
-    gap: 11,
+    gap: 15,
     width: '80%',
     alignItems: 'center',
   },
@@ -479,7 +611,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.botonSecundario,
     borderRadius: 99,
     paddingVertical: 10,
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
   },
   modalButtonTextCancel: {
     color: 'black',
@@ -490,10 +622,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     borderRadius: 99,
     paddingVertical: 10,
-    paddingHorizontal: 30,
+    paddingHorizontal: 20,
+    minWidth: 110,
   },
   modalButtonTextAdd: {
     color: 'white',
+    textAlign: 'center',
     fontSize: 16,
     fontFamily: 'Onest-Regular',
   },

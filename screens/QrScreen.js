@@ -8,6 +8,7 @@ import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect } from '@react-navigation/native';
+import * as Haptics from 'expo-haptics';
 
 const QrScreen = ({ navigation }) => {
     const [fontsLoaded, fontError] = useFonts({
@@ -116,6 +117,9 @@ const QrScreen = ({ navigation }) => {
         isNavigating.current = true;
         setScanned(true);
         console.log('QR Code scanned:', data);
+        
+        // Haptic feedback for successful scan
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         
         // Immediately and aggressively deactivate camera
         setIsCameraActive(false);

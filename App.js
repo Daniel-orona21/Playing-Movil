@@ -55,8 +55,8 @@ export default function App() {
 
   return (
     <NavigationContainer onLayout={onLayoutRootView}>
-      {/* <Stack.Navigator initialRouteName="Home"> */}
-      <Stack.Navigator initialRouteName="Layout">
+      <Stack.Navigator initialRouteName="Home">
+      {/* <Stack.Navigator initialRouteName="Layout"> */}
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
         <Stack.Screen 

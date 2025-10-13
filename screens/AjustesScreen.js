@@ -3,12 +3,14 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, TextInput } from 'react-native';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import EvilIcons from '@expo/vector-icons/EvilIcons';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useState } from 'react';
+import * as Haptics from 'expo-haptics';
 
-const AjustesScreen = ({ navigation }) => {
+const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogoutModalChange }) => {
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('../assets/fonts/Michroma-Regular.ttf'),
     'Onest-Regular': require('../assets/fonts/Onest-Regular.ttf'),
@@ -20,6 +22,7 @@ const AjustesScreen = ({ navigation }) => {
   const [nombreTemporal, setNombreTemporal] = useState('Daniel');
   const [mostrarNombre1, setMostrarNombre1] = useState(true);
   const [mostrarNombre2, setMostrarNombre2] = useState(false);
+  
 
   const handleEditar = () => {
     setNombreTemporal(nombre);
@@ -35,6 +38,16 @@ const AjustesScreen = ({ navigation }) => {
     setNombre(nombreTemporal);
     setIsEditing(false);
   };
+
+  // Modal handlers
+  const handleShowExitRestaurantModal = () => {
+    onShowExitRestaurantModalChange(true, () => navigation.navigate('Qr'));
+  };
+
+  const handleShowLogoutModal = () => {
+    onShowLogoutModalChange(true, () => navigation.navigate('Home'));
+  };
+
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -102,6 +115,26 @@ const AjustesScreen = ({ navigation }) => {
            />
          </View>
        </View>
+
+       <Text style={styles.titulo2}>Salir</Text>
+       <View style={styles.contenedor}>
+         <TouchableOpacity style={styles.filaPreferencia} onPress={handleShowExitRestaurantModal}>
+           <View style={styles.actionItem}>
+             {/* <Ionicons name="exit-outline" size={24} color="white" /> */}
+             <Text style={styles.textoPreferencia}>Salir del restaurante</Text>
+           </View>
+           <Ionicons name="chevron-forward" size={20} color="#666" />
+         </TouchableOpacity>
+         <View style={styles.separador} />
+         <TouchableOpacity style={styles.filaPreferencia} onPress={handleShowLogoutModal}>
+           <View style={styles.actionItem}>
+             {/* <Ionicons name="log-out-outline" size={24} color="white" /> */}
+             <Text style={styles.textoPreferencia}>Cerrar sesión</Text>
+           </View>
+           <Ionicons name="chevron-forward" size={20} color="#666" />
+         </TouchableOpacity>
+       </View>
+
     </View>
   );
 };
@@ -206,7 +239,12 @@ const styles = StyleSheet.create({
     transform: [
       {translateY: '-50%'}
     ]
-  }
+  },
+  actionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
 });
 
 export default AjustesScreen;

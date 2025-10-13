@@ -12,6 +12,7 @@ import LetrasScreen from './musica/LetrasScreen';
 import ColaScreen from './musica/ColaScreen';
 import HistorialScreen from './musica/HistorialScreen';
 import BusquedaScreen from './musica/BusquedaScreen';
+import * as Haptics from 'expo-haptics';
 
 const MusicaScreen = ({
   onShowModalChange
@@ -79,6 +80,8 @@ const MusicaScreen = ({
   };
 
   const handleNavPress = (navType) => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
     if (selectedNav === navType) {
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -109,6 +112,16 @@ const MusicaScreen = ({
     }
   };
 
+  const handleLikePress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsLiked(!isLiked);
+  };
+
+  const handleSkipPress = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setIsSkipping(!isSkipping);
+  };
+
   const renderContent = () => {
     if (selectedNav === null) {
       return (
@@ -124,7 +137,7 @@ const MusicaScreen = ({
           <View style={styles.acciones}>
             <TouchableOpacity 
               style={styles.btnAccion}
-              onPress={() => setIsLiked(!isLiked)}
+              onPress={handleLikePress}
             >
               <BlurView intensity={20} style={styles.btnAccionBlur}>
                 <FontAwesome 
@@ -137,7 +150,7 @@ const MusicaScreen = ({
             
             <TouchableOpacity 
               style={styles.btnAccion}
-              onPress={() => setIsSkipping(!isSkipping)}
+              onPress={handleSkipPress}
             >
               <BlurView intensity={20} style={styles.btnAccionBlur}>
                 <Ionicons 
