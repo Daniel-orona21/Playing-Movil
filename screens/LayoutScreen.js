@@ -1,4 +1,5 @@
 import React from 'react';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { StatusBar } from 'expo-status-bar';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,8 +23,10 @@ const LayoutScreen = ({ navigation }) => {
   const [selectedSongForModal, setSelectedSongForModal] = React.useState(null);
   const [showMeseroModal, setShowMeseroModal] = React.useState(false);
   const [meseroConfirmCallback, setMeseroConfirmCallback] = React.useState(null);
+  const [showCuentaModal, setShowCuentaModal] = React.useState(false);
   const overlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const meseroOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const cuentaOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showToast, setShowToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
 
@@ -76,6 +79,19 @@ const LayoutScreen = ({ navigation }) => {
     }
   };
 
+  const handleShowCuentaModalChange = (isVisible) => {
+    setShowCuentaModal(isVisible);
+  };
+
+  const handleCancelCuenta = () => {
+    setShowCuentaModal(false);
+  };
+
+  const handleSalir = () => {
+    setShowCuentaModal(false);
+    navigation.navigate('Qr');
+  };
+
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -106,6 +122,14 @@ const LayoutScreen = ({ navigation }) => {
       useNativeDriver: true,
     }).start();
   }, [showMeseroModal, meseroOverlayFadeAnim]);
+
+  React.useEffect(() => {
+    Animated.timing(cuentaOverlayFadeAnim, {
+      toValue: showCuentaModal ? 1 : 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [showCuentaModal, cuentaOverlayFadeAnim]);
 
   const handleTabChange = (newTab) => {
     if (activeTab === newTab) {
@@ -151,7 +175,7 @@ const LayoutScreen = ({ navigation }) => {
       case 'Juego':
         return <JuegoScreen />;
       case 'Ordenes':
-        return <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} />;
+        return <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} onShowCuentaModalChange={handleShowCuentaModalChange} />;
       case 'Ajustes':
         return <AjustesScreen />;
       default:
@@ -292,6 +316,28 @@ const LayoutScreen = ({ navigation }) => {
         </BlurView>
       </Animated.View>
 
+      {/* Modal de confirmación para pedir la cuenta */}
+      <Animated.View 
+        style={[styles.modalOverlay, { opacity: cuentaOverlayFadeAnim }]} 
+        pointerEvents={showCuentaModal ? 'auto' : 'none'} 
+      >
+        <BlurView intensity={40} tint='dark' style={[StyleSheet.absoluteFillObject, styles.modalOverlayCentered]}> 
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Cuenta solicitada</Text>
+            <Text style={styles.modalMessage}>
+              En un momento el mesero llevará la cuenta hasta tu mesa, gracias por tu visita.
+            </Text>
+            <View style={styles.heartIcon}>
+              <FontAwesome  name="heart" size={24} color="black" />
+            </View>
+            <TouchableOpacity onPress={handleSalir} style={styles.modalButtonExit}>
+              <Ionicons style={styles.iconosalir}  name="exit-outline" size={30} color="white" />
+              <Text style={styles.modalButtonTextExit}>Salir</Text>
+            </TouchableOpacity>
+          </View>
+        </BlurView>
+      </Animated.View>
+
       <Toast message={toastMessage} visible={showToast} onHide={handleHideToast} />
     </View>
   );
@@ -405,11 +451,11 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     backgroundColor: 'white',
-    borderRadius: 30,
+    borderRadius: 50,
     padding: 20,
     display: 'flex',
     flexDirection: 'column',
-    gap: 30,
+    gap: 11,
     width: '80%',
     alignItems: 'center',
   },
@@ -450,6 +496,30 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontFamily: 'Onest-Regular',
+  },
+  heartIcon: {
+    // marginVertical: 10,
+  },
+  modalButtonExit: {
+    backgroundColor: 'black',
+    borderRadius: 99,
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minWidth: 200,
+    justifyContent: 'center'
+  },
+  iconosalir: {
+    position: 'absolute',
+    left: 20
+  },
+  modalButtonTextExit: {
+    color: 'white',
+    fontSize: 22,
+    fontFamily: 'Onest-Regular',
+    marginHorizontal: 20
   },
 });
 
