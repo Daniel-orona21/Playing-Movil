@@ -17,4 +17,6 @@ export const Colors = {
 
   textoPrincipal: 'rgb(255, 255, 255)',
   textoSecundario: 'rgba(255, 255, 255, 0.56)',
+
+  botonPrincipal: 'rgb(23, 23, 23)',
 };
