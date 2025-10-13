@@ -20,7 +20,10 @@ const LayoutScreen = ({ navigation }) => {
   const imageFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showMusicaAddSongModal, setShowMusicaAddSongModal] = React.useState(false);
   const [selectedSongForModal, setSelectedSongForModal] = React.useState(null);
+  const [showMeseroModal, setShowMeseroModal] = React.useState(false);
+  const [meseroConfirmCallback, setMeseroConfirmCallback] = React.useState(null);
   const overlayFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const meseroOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showToast, setShowToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
 
@@ -51,6 +54,28 @@ const LayoutScreen = ({ navigation }) => {
     setSelectedSongForModal(null);
   };
 
+  const handleShowMeseroModalChange = (isVisible, onConfirmCallback) => {
+    setShowMeseroModal(isVisible);
+    if (onConfirmCallback) {
+      setMeseroConfirmCallback(() => onConfirmCallback);
+    }
+  };
+
+  const handleCancelMesero = () => {
+    setShowMeseroModal(false);
+  };
+
+  const handleConfirmMesero = () => {
+    setShowMeseroModal(false);
+    handleShowToast('¡Mesero notificado! Llegará pronto a tu mesa');
+    
+    // Ejecutar callback si existe (para iniciar cooldown)
+    if (meseroConfirmCallback) {
+      meseroConfirmCallback();
+      setMeseroConfirmCallback(null);
+    }
+  };
+
   React.useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
@@ -73,6 +98,14 @@ const LayoutScreen = ({ navigation }) => {
       useNativeDriver: true,
     }).start();
   }, [showMusicaAddSongModal, overlayFadeAnim]);
+
+  React.useEffect(() => {
+    Animated.timing(meseroOverlayFadeAnim, {
+      toValue: showMeseroModal ? 1 : 0,
+      duration: 150,
+      useNativeDriver: true,
+    }).start();
+  }, [showMeseroModal, meseroOverlayFadeAnim]);
 
   const handleTabChange = (newTab) => {
     if (activeTab === newTab) {
@@ -118,7 +151,7 @@ const LayoutScreen = ({ navigation }) => {
       case 'Juego':
         return <JuegoScreen />;
       case 'Ordenes':
-        return <OrdenesScreen />;
+        return <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} />;
       case 'Ajustes':
         return <AjustesScreen />;
       default:
@@ -232,6 +265,27 @@ const LayoutScreen = ({ navigation }) => {
               </TouchableOpacity>
               <TouchableOpacity onPress={handleAddSongGlobal} style={styles.modalButtonAdd}>
                 <Text style={styles.modalButtonTextAdd}>Agregar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </BlurView>
+      </Animated.View>
+
+      {/* Modal de confirmación para llamar al mesero */}
+      <Animated.View 
+        style={[styles.modalOverlay, { opacity: meseroOverlayFadeAnim }]} 
+        pointerEvents={showMeseroModal ? 'auto' : 'none'} 
+      >
+        <BlurView intensity={40} tint='dark' style={[StyleSheet.absoluteFillObject, styles.modalOverlayCentered]}> 
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Llamar al mesero</Text>
+            <Text style={styles.modalMessage}>¿Estás seguro de que quieres llamar al mesero?</Text>
+            <View style={styles.modalButtonsContainer}>
+              <TouchableOpacity onPress={handleCancelMesero} style={styles.modalButtonCancel}>
+                <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleConfirmMesero} style={styles.modalButtonAdd}>
+                <Text style={styles.modalButtonTextAdd}>Confirmar</Text>
               </TouchableOpacity>
             </View>
           </View>
