@@ -10,6 +10,7 @@ import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
+import AuthService from '../services/AuthService';
 
 const QrScreen = ({ navigation }) => {
     const [fontsLoaded, fontError] = useFonts({
@@ -47,6 +48,29 @@ const QrScreen = ({ navigation }) => {
         requestPermission();
       }
     }, [permission, requestPermission]);
+
+    // Al entrar a la pantalla: si ya tiene mesa asignada, redirigir a Layout
+    useFocusEffect(
+      useCallback(() => {
+        let cancelled = false;
+        (async () => {
+          try {
+            await AuthService.loadStoredAuth();
+            if (AuthService.isAuthenticated()) {
+              // fuerza lectura desde BD con el nuevo /profile
+              const res = await AuthService.verifyToken();
+              if (!cancelled && res && res.success && res.user && res.user.mesa_id_activa) {
+                navigation.reset({ index: 0, routes: [{ name: 'Layout' }] });
+                return;
+              }
+            }
+          } catch (e) {
+            // ignore
+          }
+        })();
+        return () => { cancelled = true; };
+      }, [navigation])
+    );
 
     // Use useFocusEffect only for cleanup when screen loses focus
     useFocusEffect(
