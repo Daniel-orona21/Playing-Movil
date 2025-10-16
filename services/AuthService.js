@@ -122,6 +122,11 @@ class AuthService {
       // Notificar al backend (best-effort)
       try {
         if (this.token) {
+          // limpiar relación de mesa activa
+          try {
+            const API_BASE = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+            await fetch(`${API_BASE}/establecimientos/leave`, { method: 'POST', headers: { 'Authorization': `Bearer ${this.token}` } });
+          } catch {}
           await fetch(`${API_URL}/logout`, {
             method: 'POST',
             headers: {

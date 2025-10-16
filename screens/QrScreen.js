@@ -7,6 +7,7 @@ import { useCallback, useState, useEffect, useRef } from 'react';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
 import { Ionicons } from '@expo/vector-icons';
 import { CameraView, CameraType, useCameraPermissions } from 'expo-camera';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Haptics from 'expo-haptics';
 
@@ -112,7 +113,7 @@ const QrScreen = ({ navigation }) => {
     };
 
     // Handle QR code scanning
-    const handleBarcodeScanned = ({ type, data }) => {
+    const handleBarcodeScanned = async ({ type, data }) => {
       if (!scanned && !isNavigating.current) {
         isNavigating.current = true;
         setScanned(true);
@@ -129,7 +130,33 @@ const QrScreen = ({ navigation }) => {
         // Force stop camera immediately
         console.log('Force unmounting camera after QR scan');
         
-        // Navigate immediately without delay to prevent camera persistence
+        try {
+          let payload = null;
+          try { payload = JSON.parse(data); } catch {}
+          if (!payload || !payload.e || !payload.m) {
+            console.log('QR inválido');
+            navigation.navigate('Layout');
+            return;
+          }
+          const token = await AsyncStorage.getItem('token');
+          const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+          const linkUrl = `${API_URL}/establecimientos/qr/vincular`;
+          console.log('Linking URL:', linkUrl);
+          const res = await fetch(linkUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
+            body: JSON.stringify({ e: payload.e, m: payload.m })
+          });
+          const ct = res.headers.get('content-type') || '';
+          const bodyText = await res.text();
+          if (ct.includes('application/json')) {
+            try { console.log('Vinculación QR:', JSON.parse(bodyText)); } catch { console.log('Vinculación QR (raw):', bodyText); }
+          } else {
+            console.log('Respuesta no JSON:', bodyText.slice(0, 200));
+          }
+        } catch (e) {
+          console.log('Error vinculando QR', e);
+        }
         navigation.navigate('Layout');
       }
     };

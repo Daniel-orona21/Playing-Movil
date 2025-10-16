@@ -10,6 +10,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import AuthService from '../services/AuthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogoutModalChange }) => {
   const [fontsLoaded, fontError] = useFonts({
@@ -42,7 +43,17 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
 
   // Modal handlers
   const handleShowExitRestaurantModal = () => {
-    onShowExitRestaurantModalChange(true, () => navigation.navigate('Qr'));
+    onShowExitRestaurantModalChange(true, async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+        await fetch(`${API_URL}/establecimientos/leave`, {
+          method: 'POST',
+          headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
+        });
+      } catch {}
+      navigation.navigate('Qr');
+    });
   };
 
   const handleShowLogoutModal = () => {

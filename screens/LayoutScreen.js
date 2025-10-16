@@ -12,6 +12,8 @@ import { Colors } from '../constants/Colors';
 import { BlurView } from 'expo-blur';
 import Toast from '../components/Toast';
 import * as Haptics from 'expo-haptics'; 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { io } from 'socket.io-client';
 
 const Tab = createBottomTabNavigator();
 
@@ -36,6 +38,7 @@ const LayoutScreen = ({ navigation }) => {
   const logoutOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showToast, setShowToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
+  const socketRef = React.useRef(null);
 
   const handleShowMusicaAddSongModalChange = (isVisible, songData) => {
     if (isVisible) {
@@ -135,6 +138,32 @@ const LayoutScreen = ({ navigation }) => {
       setExitRestaurantCallback(null);
     }
   };
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+        const base = API_URL.replace('/api','');
+        // Opcional: si guardas el id de usuario en storage, puedes unir al room específico
+        const user = await AsyncStorage.getItem('user');
+        const userId = user ? JSON.parse(user)?.id : null;
+        socketRef.current = io(base, { transports: ['websocket'], auth: { token } });
+        if (userId) socketRef.current.emit('join_user', userId);
+        socketRef.current.on('user:kicked', () => {
+          // Redirigir a escaneo
+          setActiveTab('Ajustes');
+          navigation.navigate('Qr');
+        });
+      } catch {}
+    })();
+    return () => {
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+    };
+  }, []);
 
   const handleShowLogoutModalChange = (isVisible, onConfirmCallback) => {
     if (isVisible) {
