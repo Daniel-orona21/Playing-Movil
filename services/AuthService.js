@@ -119,6 +119,20 @@ class AuthService {
 
   async signOut() {
     try {
+      // Notificar al backend (best-effort)
+      try {
+        if (this.token) {
+          await fetch(`${API_URL}/logout`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${this.token}`,
+            },
+          });
+        }
+      } catch (e) {
+        // Ignorar errores del backend en logout; proceder localmente
+      }
+
       // Limpiar datos locales
       await AsyncStorage.removeItem('token');
       await AsyncStorage.removeItem('user');

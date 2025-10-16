@@ -9,6 +9,7 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useState } from 'react';
 import * as Haptics from 'expo-haptics';
+import AuthService from '../services/AuthService';
 
 const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogoutModalChange }) => {
   const [fontsLoaded, fontError] = useFonts({
@@ -45,7 +46,13 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
   };
 
   const handleShowLogoutModal = () => {
-    onShowLogoutModalChange(true, () => navigation.navigate('Home'));
+    onShowLogoutModalChange(true, async () => {
+      try {
+        await AuthService.signOut();
+      } finally {
+        navigation.navigate('Home');
+      }
+    });
   };
 
 
