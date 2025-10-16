@@ -14,6 +14,7 @@ import Toast from '../components/Toast';
 import * as Haptics from 'expo-haptics'; 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { io } from 'socket.io-client';
+import AuthService from '../services/AuthService';
 
 const Tab = createBottomTabNavigator();
 
@@ -39,6 +40,7 @@ const LayoutScreen = ({ navigation }) => {
   const [showToast, setShowToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
   const socketRef = React.useRef(null);
+  const watchdogRef = React.useRef(null);
 
   const handleShowMusicaAddSongModalChange = (isVisible, songData) => {
     if (isVisible) {
@@ -148,19 +150,49 @@ const LayoutScreen = ({ navigation }) => {
         // Opcional: si guardas el id de usuario en storage, puedes unir al room específico
         const user = await AsyncStorage.getItem('user');
         const userId = user ? JSON.parse(user)?.id : null;
-        socketRef.current = io(base, { transports: ['websocket'], auth: { token } });
-        if (userId) socketRef.current.emit('join_user', userId);
+        socketRef.current = io(base, { transports: ['websocket'], auth: { token }, autoConnect: true, reconnection: true, reconnectionAttempts: Infinity, reconnectionDelay: 500, reconnectionDelayMax: 5000 });
+        const joinRoom = () => { if (userId) socketRef.current.emit('join_user', userId); };
+        socketRef.current.on('connect', joinRoom);
+        socketRef.current.on('reconnect', joinRoom);
         socketRef.current.on('user:kicked', () => {
           // Redirigir a escaneo
           setActiveTab('Ajustes');
           navigation.navigate('Qr');
         });
+        socketRef.current.on('disconnect', async () => {
+          // Fallback inmediato: verificar estado de mesa y redirigir si es necesario
+          try {
+            await AuthService.loadStoredAuth();
+            if (AuthService.isAuthenticated()) {
+              const res = await AuthService.verifyToken();
+              if (!res?.user?.mesa_id_activa) {
+                navigation.navigate('Qr');
+              }
+            }
+          } catch {}
+        });
+        // Watchdog: verificación periódica como seguro ante sockets caídos
+        watchdogRef.current = setInterval(async () => {
+          try {
+            await AuthService.loadStoredAuth();
+            if (AuthService.isAuthenticated()) {
+              const res = await AuthService.verifyToken();
+              if (!res?.user?.mesa_id_activa) {
+                navigation.navigate('Qr');
+              }
+            }
+          } catch {}
+        }, 20000);
       } catch {}
     })();
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+      }
+      if (watchdogRef.current) {
+        clearInterval(watchdogRef.current);
+        watchdogRef.current = null;
       }
     };
   }, []);
