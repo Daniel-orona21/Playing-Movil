@@ -1,18 +1,35 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, Image, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, Text, View, Image, TouchableOpacity, Platform, Alert } from 'react-native';
 import { Colors } from './constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 import QrScreen from './screens/QrScreen';
 import LayoutScreen from './screens/LayoutScreen';
+import AuthService from './services/AuthService';
 
 const Stack = createStackNavigator();
 
 function HomeScreen({ navigation }) {
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleGoogleSignIn = async () => {
+    setIsLoading(true);
+    try {
+      const result = await AuthService.signInWithGoogle();
+      if (result.success) {
+        navigation.navigate('Qr');
+      }
+    } catch (error) {
+      console.error('Error en login:', error);
+      Alert.alert('Error', 'Error al iniciar sesión con Google');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -21,13 +38,14 @@ function HomeScreen({ navigation }) {
       <View style={styles.contenedorLogin}>
         <Text style={styles.subtitulo}>Inicia Sesión</Text>
         <TouchableOpacity
-          style={styles.googleButton}
-          onPress={() => {
-            navigation.navigate('Qr');
-          }}
+          style={[styles.googleButton, isLoading && styles.googleButtonDisabled]}
+          onPress={handleGoogleSignIn}
+          disabled={isLoading}
         >
           <FontAwesome name="google" size={25} color="white" />
-          <Text style={styles.googleButtonText}>Continúa con Google</Text>
+          <Text style={styles.googleButtonText}>
+            {isLoading ? 'Iniciando sesión...' : 'Continúa con Google'}
+          </Text>
         </TouchableOpacity>
       </View>
       <StatusBar style="light" />
@@ -43,6 +61,24 @@ export default function App() {
     'Onest-Bold': require('./assets/fonts/Onest-Bold.ttf'),
   });
 
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
+
+  const checkAuthStatus = async () => {
+    try {
+      const hasAuth = await AuthService.loadStoredAuth();
+      setIsAuthenticated(hasAuth);
+    } catch (error) {
+      console.error('Error verificando autenticación:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
       await SplashScreen.hideAsync();
@@ -53,10 +89,14 @@ export default function App() {
     return null;
   }
 
+  if (isLoading) {
+    return null; // Mostrar splash screen mientras carga
+  }
+
   return (
     <NavigationContainer onLayout={onLayoutRootView}>
-      <Stack.Navigator initialRouteName="Home">
-      {/* <Stack.Navigator initialRouteName="Layout"> */}
+      <Stack.Navigator initialRouteName={isAuthenticated ? "Qr" : "Home"}>
+      {/* <Stack.Navigator initialRouteName={"Home"}> */}
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
         <Stack.Screen 
@@ -140,6 +180,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'black',
     padding: 20,
     borderRadius: 99,
+  },
+  googleButtonDisabled: {
+    opacity: 0.6,
   },
   googleButtonText: {
     fontSize: 20,
