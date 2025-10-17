@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 
 // Read API base URL from Expo env or fallback to LAN IP if provided
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://192.168.1.100:3000/api/auth';
+const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/auth';
 
 // Configurar WebBrowser
 WebBrowser.maybeCompleteAuthSession();
@@ -16,7 +16,7 @@ class AuthService {
   async signInWithGoogle() {
     try {
       // URL de autorización de Google
-      const redirectUri = (process.env.EXPO_PUBLIC_SERVER_PUBLIC_URL || 'http://192.168.1.100:3000') + '/auth/callback';
+      const redirectUri = (process.env.EXPO_PUBLIC_SERVER_PUBLIC_URL || 'http://localhost:3000') + '/auth/callback';
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${this.getGoogleClientId()}&` +
         `redirect_uri=${encodeURIComponent(redirectUri)}&` +
