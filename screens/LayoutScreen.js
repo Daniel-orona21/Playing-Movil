@@ -3,7 +3,7 @@ import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { StatusBar } from 'expo-status-bar';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Image, ActivityIndicator } from 'react-native';
 import MusicaScreen from './MusicaScreen';
 import JuegoScreen from './JuegoScreen';
 import OrdenesScreen from './OrdenesScreen';
@@ -25,6 +25,7 @@ const LayoutScreen = ({ navigation }) => {
   const imageFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showMusicaAddSongModal, setShowMusicaAddSongModal] = React.useState(false);
   const [selectedSongForModal, setSelectedSongForModal] = React.useState(null);
+  const [isAddingSong, setIsAddingSong] = React.useState(false);
   const [showMeseroModal, setShowMeseroModal] = React.useState(false);
   const [meseroConfirmCallback, setMeseroConfirmCallback] = React.useState(null);
   const [showCuentaModal, setShowCuentaModal] = React.useState(false);
@@ -66,12 +67,113 @@ const LayoutScreen = ({ navigation }) => {
     setToastMessage('');
   };
 
-  const handleAddSongGlobal = () => {
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    console.log('Simulando agregar canción:', selectedSongForModal);
-    handleShowToast(`"${selectedSongForModal ? selectedSongForModal.title : 'La canción'}" ha sido agregada.`);
-    setShowMusicaAddSongModal(false);
-    setSelectedSongForModal(null);
+  const handleAddSongGlobal = async () => {
+    if (!selectedSongForModal || isAddingSong) return;
+
+    // console.log('🎵 Adding song:', selectedSongForModal);
+    
+    setIsAddingSong(true);
+
+    const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+    
+    try {
+      await AuthService.loadStoredAuth();
+      const user = AuthService.getCurrentUser();
+      if (!user) {
+        handleShowToast('Error: Usuario no autenticado');
+        setShowMusicaAddSongModal(false);
+        setIsAddingSong(false);
+        return;
+      }
+
+      // Obtener establecimientoId
+      const res = await AuthService.verifyToken();
+      if (!res || !res.success || !res.user || !res.user.mesa_id_activa) {
+        handleShowToast('Error: No se pudo identificar el establecimiento');
+        setShowMusicaAddSongModal(false);
+        setIsAddingSong(false);
+        return;
+      }
+
+      const token = await AsyncStorage.getItem('token');
+      const mesaRes = await fetch(`${API_URL}/establecimientos/mesa/${res.user.mesa_id_activa}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (!mesaRes.ok) {
+        handleShowToast('Error: No se pudo obtener información del establecimiento');
+        setShowMusicaAddSongModal(false);
+        setIsAddingSong(false);
+        return;
+      }
+
+      const mesaData = await mesaRes.json();
+      if (!mesaData.success || !mesaData.mesa) {
+        handleShowToast('Error: No se pudo obtener información del establecimiento');
+        setShowMusicaAddSongModal(false);
+        setIsAddingSong(false);
+        return;
+      }
+
+      const establecimientoId = mesaData.mesa.establecimiento_id;
+
+      // Preparar el body del request
+      const requestBody = {
+        spotify_id: selectedSongForModal.spotify_id,
+        titulo: selectedSongForModal.titulo,
+        artista: selectedSongForModal.artista,
+        album: selectedSongForModal.album || '',
+        duracion: selectedSongForModal.duracion || 0,
+        imagen_url: selectedSongForModal.imagen_url || null,
+        genero: selectedSongForModal.genero || null,
+        preview_url: selectedSongForModal.preview_url || null,
+        establecimientoId: establecimientoId,
+        usuarioId: user.id
+      };
+
+      // Agregar a la cola
+      const response = await fetch(`${API_URL}/musica/queue`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(requestBody)
+      });
+
+      const data = await response.json();
+      
+      // console.log('📡 Response:', { status: response.status, data });
+
+      if (response.ok && data.success) {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        handleShowToast(`"${selectedSongForModal.titulo}" agregada a la fila.`);
+      } else {
+        Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+        // console.error('Error from API:', data);
+        
+        // Manejar errores específicos
+        if (data.blocked) {
+          handleShowToast('Esta canción está bloqueada por el establecimiento');
+        } else if (data.limitType === 'song_in_queue') {
+          handleShowToast(data.error || 'Esta canción ya está en la cola');
+        } else if (data.limitType === 'song_play_limit') {
+          handleShowToast(data.error);
+        } else if (data.limitType === 'user_request_limit') {
+          handleShowToast(data.error);
+        } else {
+          handleShowToast(data.error || 'No se pudo agregar la canción');
+        }
+      }
+    } catch (error) {
+      console.error('Error agregando canción:', error);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      handleShowToast('Error al agregar la canción a la cola');
+    } finally {
+      setIsAddingSong(false);
+      setShowMusicaAddSongModal(false);
+      setSelectedSongForModal(null);
+    }
   };
 
   const handleShowMeseroModalChange = (isVisible, onConfirmCallback) => {
@@ -429,17 +531,29 @@ const LayoutScreen = ({ navigation }) => {
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Agregar canción</Text>
             {selectedSongForModal && (
-              <Text style={styles.modalMessage}>¿Agregar "{selectedSongForModal.title}" a la lista de reproducción?</Text>
+              <Text style={styles.modalMessage}>¿Agregar "{selectedSongForModal.titulo || selectedSongForModal.title}" a la lista de reproducción?</Text>
             )}
             {!selectedSongForModal && (
               <Text style={styles.modalMessage}>¿Agregar canción a la lista de reproduccion?</Text>
             )}
             <View style={styles.modalButtonsContainer}>
-              <TouchableOpacity onPress={handleCancelAddSongGlobal} style={styles.modalButtonCancel}>
+              <TouchableOpacity 
+                onPress={handleCancelAddSongGlobal} 
+                style={styles.modalButtonCancel}
+                disabled={isAddingSong}
+              >
                 <Text style={styles.modalButtonTextCancel}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleAddSongGlobal} style={styles.modalButtonAdd}>
-                <Text style={styles.modalButtonTextAdd}>Agregar</Text>
+              <TouchableOpacity 
+                onPress={handleAddSongGlobal} 
+                style={[styles.modalButtonAdd, isAddingSong && styles.modalButtonDisabled]}
+                disabled={isAddingSong}
+              >
+                {isAddingSong ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.modalButtonTextAdd}>Agregar</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -685,6 +799,12 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     minWidth: 110,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalButtonDisabled: {
+    backgroundColor: '#666',
+    opacity: 0.6,
   },
   modalButtonTextAdd: {
     color: 'white',

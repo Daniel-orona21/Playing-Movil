@@ -1,8 +1,10 @@
-import { View, Text, StyleSheet, ScrollView, Image } from 'react-native'
+import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator, } from 'react-native'
 import React, { useState, useEffect, useCallback, useRef } from 'react'
+import Feather from '@expo/vector-icons/Feather';
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants/Colors';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import MusicaSocketService from '../../services/MusicaSocketService';
@@ -12,6 +14,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function HistorialScreen() {
   const [historySongs, setHistorySongs] = useState([]);
   const [establecimientoId, setEstablecimientoId] = useState(null);
+  const [userId, setUserId] = useState(null);
   const [loading, setLoading] = useState(true);
   const unsubscribeHistoryUpdate = useRef(null);
   const [fontsLoaded, fontError] = useFonts({
@@ -21,7 +24,7 @@ export default function HistorialScreen() {
   });
 
   // Función para cargar el historial
-  const loadHistory = useCallback(async (estabId) => {
+  const loadHistory = useCallback(async (estabId, currentUserId) => {
     try {
       const token = await AsyncStorage.getItem('token');
       const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -33,6 +36,8 @@ export default function HistorialScreen() {
       if (response.ok) {
         const data = await response.json();
         if (data.success && data.history) {
+          console.log('History song sample:', data.history[0]);
+          console.log('Current userId:', currentUserId);
           setHistorySongs(data.history);
         }
       }
@@ -49,6 +54,13 @@ export default function HistorialScreen() {
       try {
         await AuthService.loadStoredAuth();
         if (AuthService.isAuthenticated()) {
+          const user = AuthService.getCurrentUser();
+          let currentUserId = null;
+          if (user && user.id) {
+            currentUserId = user.id;
+            setUserId(user.id);
+          }
+          
           const res = await AuthService.verifyToken();
           if (res && res.success && res.user && res.user.mesa_id_activa) {
             const token = await AsyncStorage.getItem('token');
@@ -65,11 +77,11 @@ export default function HistorialScreen() {
                 setEstablecimientoId(estabId);
                 
                 // Cargar historial inicial
-                await loadHistory(estabId);
+                await loadHistory(estabId, currentUserId);
                 
                 // Suscribirse a actualizaciones del historial
                 unsubscribeHistoryUpdate.current = MusicaSocketService.on('history_update', () => {
-                  loadHistory(estabId);
+                  loadHistory(estabId, currentUserId);
                 });
               }
             }
@@ -117,14 +129,17 @@ export default function HistorialScreen() {
   return (
     <View style={styles.contenido} onLayout={onLayoutRootView}>
       <Text style={styles.texto}>Historial</Text>
-      <ScrollView style={styles.scroll}>
-        <View style={styles.historyContainer}>
-          {loading ? (
-            <Text style={styles.noResultsText}>Cargando...</Text>
-          ) : historySongs.length === 0 ? (
-            <Text style={styles.noResultsText}>No hay canciones en el historial</Text>
-          ) : (
-            historySongs.map((song) => (
+      <ScrollView 
+        style={styles.scroll}
+        contentContainerStyle={loading ? styles.scrollContentLoading : null}
+      >
+        {loading ? (
+          <ActivityIndicator size="large" color="white" style={styles.loader} />
+        ) : historySongs.length === 0 ? (
+          <Text style={styles.noResultsText}>No hay canciones en el historial</Text>
+        ) : (
+          <View style={styles.historyContainer}>
+            {historySongs.map((song) => (
               <View key={song.id_historial} style={styles.songResultButtonWrapper}>
                 <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
                   {song.imagen_url ? (
@@ -142,14 +157,19 @@ export default function HistorialScreen() {
                     <Text style={styles.songTitle} numberOfLines={1}>{song.titulo}</Text>
                     <Text style={styles.songArtist} numberOfLines={1}>{song.artista}</Text>
                   </View>
+                  {song.usuario_id === userId && (
+                    <View style={styles.userBadge}>
+                      <Feather name="user" size={16} color="white" style={styles.iconoUsuario} />
+                    </View>
+                  )}
                   <View style={styles.tiempoContainer}>
                     <Text style={styles.tiempoTexto}>{formatDate(song.reproducida_en)}</Text>
                   </View>
                 </BlurView>
               </View>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
       </ScrollView>
     </View>
   )
@@ -166,8 +186,15 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   scroll: {
-    // borderWidth: 1,
-    // borderColor: 'pink',
+    flex: 1,
+  },
+  scrollContentLoading: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loader: {
+    marginVertical: 40,
   },
   historyContainer: {
     gap: 10
@@ -213,6 +240,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Onest-Regular',
   },
+  iconoUsuario : {
+    opacity: .5
+  },
   songResultButtonWrapper: {
     borderRadius: 10,
   },
@@ -222,5 +252,8 @@ const styles = StyleSheet.create({
     fontFamily: 'Onest-Regular',
     textAlign: 'center',
     marginTop: 10,
+  },
+  userBadge: {
+    paddingHorizontal: 8,
   },
 });

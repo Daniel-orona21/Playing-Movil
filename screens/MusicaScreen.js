@@ -39,9 +39,9 @@ const MusicaScreen = ({
   const [establecimientoId, setEstablecimientoId] = useState(null); 
 
   // Funciones para el modal de agregar canción
-  const handleOpenAddSongModal = (song) => {
+  const handleOpenAddSongModal = (isVisible, song) => {
     if (onShowModalChange) {
-      onShowModalChange(true, song); 
+      onShowModalChange(isVisible, song); 
     }
   };
 
@@ -201,7 +201,7 @@ const MusicaScreen = ({
       case 'historial':
         return <HistorialScreen />;
       case 'busqueda':
-        return <BusquedaScreen onOpenAddSongModal={handleOpenAddSongModal} />;
+        return <BusquedaScreen onShowModalChange={handleOpenAddSongModal} />;
       default:
         return null;
     }
@@ -376,17 +376,19 @@ const MusicaScreen = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: 'transparent',
+    // backgroundColor: 'green',
   },
   contenido: {
     display: 'flex',
+    // backgroundColor: 'yellow',
     flex: 1,
   },
   secciones: {
     display: 'flex',
     flex: 1,
     // backgroundColor: 'blue',
-    padding: 30
+    padding: 30,
+    paddingBottom: 0
   },
   sonando: {
     alignItems: 'center',
