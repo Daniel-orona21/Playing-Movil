@@ -2,7 +2,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as WebBrowser from 'expo-web-browser';
 
 // Read API base URL from Expo env or fallback to LAN IP if provided
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api/auth';
+// Asegurarse de que siempre termine en /api/auth
+const getAuthApiUrl = () => {
+  let base = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+  // Remover /auth si existe
+  base = base.replace(/\/auth$/, '');
+  // Asegurar que tenga /api
+  if (!base.endsWith('/api')) {
+    base = base + '/api';
+  }
+  // Agregar /auth
+  return base + '/auth';
+};
+
+const API_URL = getAuthApiUrl();
 
 // Configurar WebBrowser
 WebBrowser.maybeCompleteAuthSession();
@@ -25,22 +38,16 @@ class AuthService {
         `access_type=offline&` +
         `prompt=select_account`;
 
-      console.log('Auth URL:', authUrl);
-
       // Abrir el navegador para autenticación
       const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
         redirectUri
       );
 
-      console.log('Resultado de autenticación:', result);
-
       if (result.type === 'success' && result.url) {
         // Extraer el código de autorización de la URL
         const url = new URL(result.url);
         const code = url.searchParams.get('code');
-        
-        console.log('Código extraído:', code);
         
         if (code) {
           // Enviar código al backend para autenticación
@@ -72,7 +79,9 @@ class AuthService {
 
   async authenticateWithBackend(code) {
     try {
-      const response = await fetch(`${API_URL}/google/cliente`, {
+      const url = `${API_URL}/google/cliente`;
+      
+      const response = await fetch(url, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -80,8 +89,15 @@ class AuthService {
         body: JSON.stringify({ code: code }),
       });
 
-      const data = await response.json();
-      return data;
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return data;
+      } else {
+        const text = await response.text();
+        console.error('Error: Respuesta no es JSON:', text.substring(0, 200));
+        throw new Error('Respuesta del servidor no es JSON');
+      }
     } catch (error) {
       console.error('Error en authenticateWithBackend:', error);
       throw error;
@@ -124,7 +140,8 @@ class AuthService {
         if (this.token) {
           // limpiar relación de mesa activa
           try {
-            const API_BASE = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+            // Obtener API_BASE sin /auth
+            const API_BASE = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
             await fetch(`${API_BASE}/establecimientos/leave`, { method: 'POST', headers: { 'Authorization': `Bearer ${this.token}` } });
           } catch {}
           await fetch(`${API_URL}/logout`, {
@@ -167,14 +184,23 @@ class AuthService {
     }
 
     try {
-      const response = await fetch(`${API_URL}/profile`, {
+      const url = `${API_URL}/profile`;
+      
+      const response = await fetch(url, {
         headers: {
           'Authorization': `Bearer ${this.token}`,
         },
       });
-
-      const data = await response.json();
-      return data;
+      
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        return data;
+      } else {
+        const text = await response.text();
+        console.error('Error: Verify response no es JSON:', text.substring(0, 200));
+        throw new Error('Respuesta del servidor no es JSON');
+      }
     } catch (error) {
       console.error('Error verificando token:', error);
       throw error;

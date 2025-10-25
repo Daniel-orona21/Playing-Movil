@@ -1,5 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Animated, Image } from 'react-native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Colors } from '../constants/Colors';
 import { useFonts } from 'expo-font';
@@ -13,6 +13,9 @@ import ColaScreen from './musica/ColaScreen';
 import HistorialScreen from './musica/HistorialScreen';
 import BusquedaScreen from './musica/BusquedaScreen';
 import * as Haptics from 'expo-haptics';
+import MusicaSocketService from '../services/MusicaSocketService';
+import AuthService from '../services/AuthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const MusicaScreen = ({
   onShowModalChange
@@ -29,7 +32,11 @@ const MusicaScreen = ({
   
   // Estado para la navegación
   const [selectedNav, setSelectedNav] = useState(null);
-  const fadeAnim = useRef(new Animated.Value(1)).current; 
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+
+  // Estados para la reproducción en tiempo real
+  const [currentTrack, setCurrentTrack] = useState(null);
+  const [establecimientoId, setEstablecimientoId] = useState(null); 
 
   // Funciones para el modal de agregar canción
   const handleOpenAddSongModal = (song) => {
@@ -39,31 +46,16 @@ const MusicaScreen = ({
   };
 
   
-  const [currentTimeStr, setCurrentTimeStr] = useState("2"); // Tiempo actual
-  const [totalDurationStr, setTotalDurationStr] = useState("3"); // Duración total
+  // Estados para tiempo en SEGUNDOS (números directos)
+  const [currentTime, setCurrentTime] = useState(0); 
+  const [totalDuration, setTotalDuration] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   
-  // Función para convertir "minutos.segundos" a segundos totales
-  const parseTimeToSeconds = (timeStr) => {
-    const parts = timeStr.split('.');
-    const minutes = parseInt(parts[0]);
-    
-    if (parts.length === 1) {
-      return minutes * 60;
-    } else {
-      const secondsPart = parts[1];
-      if (secondsPart.length === 1) {
-        const decimalMinutes = parseFloat(timeStr);
-        return Math.round(decimalMinutes * 60);
-      } else {
-        const seconds = parseInt(secondsPart);
-        return minutes * 60 + seconds;
-      }
-    }
-  };
-  
-  const currentTime = parseTimeToSeconds(currentTimeStr);
-  const totalDuration = parseTimeToSeconds(totalDurationStr);
+  // Ref para guardar el unsubscribe de los listeners
+  const unsubscribePlaybackUpdate = useRef(null);
+  const unsubscribeTrackStarted = useRef(null);
+  const unsubscribePlaybackState = useRef(null);
+  const unsubscribeProgress = useRef(null);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -126,12 +118,24 @@ const MusicaScreen = ({
     if (selectedNav === null) {
       return (
         <View style={styles.sonando}>
-          <BlurView intensity={10} style={styles.portada}>
-            <MaterialIcons name="music-note" size={44} color="gray" />
-          </BlurView>
+          {currentTrack && currentTrack.imagen_url ? (
+            <Image 
+              source={{ uri: currentTrack.imagen_url }} 
+              style={styles.portada}
+              resizeMode="cover"
+            />
+          ) : (
+            <BlurView intensity={10} style={styles.portada}>
+              <MaterialIcons name="music-note" size={44} color="gray" />
+            </BlurView>
+          )}
           <View style={styles.infoCancion}>
-            <Text style={styles.nombre}>Cancion 23</Text>
-            <Text style={styles.artista}>Artista de prueba</Text>
+            <Text style={styles.nombre} numberOfLines={1}>
+              {currentTrack ? currentTrack.titulo : 'Sin reproducción'}
+            </Text>
+            <Text style={styles.artista} numberOfLines={1}>
+              {currentTrack ? currentTrack.artista : 'Esperando...'}
+            </Text>
           </View>
 
           <View style={styles.acciones}>
@@ -203,27 +207,103 @@ const MusicaScreen = ({
     }
   };
 
-  // Función para convertir segundos a formato "minutos.segundos"
-  const secondsToTimeStr = (seconds) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}.${secs.toString().padStart(2, '0')}`;
-  };
-
+  // useEffect para obtener el establecimientoId y conectar al socket
   useEffect(() => {
-    let interval;
-    if (isPlaying && currentTime < totalDuration) {
-      interval = setInterval(() => {
-        const newTime = currentTime + 1;
-        setCurrentTimeStr(secondsToTimeStr(newTime));
-        
-        if (newTime >= totalDuration) {
-          setIsPlaying(false);
+    const fetchEstablecimientoAndConnect = async () => {
+      try {
+        // Obtener información del usuario autenticado
+        await AuthService.loadStoredAuth();
+        if (AuthService.isAuthenticated()) {
+          const res = await AuthService.verifyToken();
+          if (res && res.success && res.user && res.user.mesa_id_activa) {
+            // Obtener el establecimiento_id desde la mesa
+            const token = await AsyncStorage.getItem('token');
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+            
+            // Obtener información de la mesa para saber el establecimiento_id
+            const mesaRes = await fetch(`${API_URL}/establecimientos/mesa/${res.user.mesa_id_activa}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (mesaRes.ok) {
+              const mesaData = await mesaRes.json();
+              if (mesaData.success && mesaData.mesa) {
+                const estabId = mesaData.mesa.establecimiento_id;
+                setEstablecimientoId(estabId);
+                
+                // Conectar al socket
+                MusicaSocketService.connect(estabId);
+                
+                // Obtener el estado actual de reproducción
+                const playingRes = await fetch(`${API_URL}/musica/queue/current-playing?establecimientoId=${estabId}`, {
+                  headers: { 'Authorization': `Bearer ${token}` }
+                });
+                
+                if (playingRes.ok) {
+                  const playingData = await playingRes.json();
+                  if (playingData.success && playingData.currentPlaying) {
+                    setCurrentTrack(playingData.currentPlaying);
+                    setCurrentTime(0);
+                    setTotalDuration(playingData.currentPlaying.duracion || 0);
+                    setIsPlaying(true);
+                  }
+                }
+                
+                // Suscribirse a eventos de reproducción
+                unsubscribePlaybackUpdate.current = MusicaSocketService.on('playback_update', (data) => {
+                  if (data.currentTrack) {
+                    setCurrentTrack(data.currentTrack);
+                    setIsPlaying(data.isPlaying || false);
+                    setCurrentTime(Math.floor((data.position || 0) / 1000));
+                    setTotalDuration(data.currentTrack.duracion || 0);
+                  }
+                });
+                
+                unsubscribeTrackStarted.current = MusicaSocketService.on('track_started', (data) => {
+                  if (data.track) {
+                    setCurrentTrack(data.track);
+                    setIsPlaying(true);
+                    setCurrentTime(0);
+                    setTotalDuration(data.track.duracion || 0);
+                  }
+                });
+                
+                unsubscribePlaybackState.current = MusicaSocketService.on('playback_state_change', (data) => {
+                  setIsPlaying(data.isPlaying || false);
+                  if (data.position !== undefined) {
+                    setCurrentTime(Math.floor(data.position / 1000));
+                  }
+                });
+                
+                unsubscribeProgress.current = MusicaSocketService.on('playback_progress', (data) => {
+                  if (data.position !== undefined && data.duration !== undefined) {
+                    setCurrentTime(Math.floor(data.position / 1000));
+                    setTotalDuration(Math.floor(data.duration / 1000));
+                  }
+                });
+              }
+            }
+          }
         }
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [isPlaying, currentTime, totalDuration]);
+      } catch (error) {
+        console.error('Error obteniendo establecimiento:', error);
+      }
+    };
+    
+    fetchEstablecimientoAndConnect();
+    
+    // Cleanup
+    return () => {
+      if (unsubscribePlaybackUpdate.current) unsubscribePlaybackUpdate.current();
+      if (unsubscribeTrackStarted.current) unsubscribeTrackStarted.current();
+      if (unsubscribePlaybackState.current) unsubscribePlaybackState.current();
+      if (unsubscribeProgress.current) unsubscribeProgress.current();
+      MusicaSocketService.disconnect();
+    };
+  }, []);
+
+  // NO usar contador local - el progreso viene del socket
+  // La sincronización se maneja completamente desde el backend
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -325,6 +405,10 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: Colors.contenedor,
   },
+  portadaImagen: {
+    width: '100%',
+    height: '100%',
+  },
   infoCancion: {
     display: 'flex',
     flexDirection: 'column',
@@ -334,11 +418,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Onest-Regular',
     fontSize: 20,
     color: Colors.textoPrincipal,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   artista: {
     fontFamily: 'Onest-Regular',
-    fontSize: 20,
+    fontSize: 18,
     color: Colors.textoSecundario,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   acciones: {
     display: 'flex',

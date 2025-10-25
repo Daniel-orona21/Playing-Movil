@@ -145,7 +145,7 @@ const LayoutScreen = ({ navigation }) => {
     (async () => {
       try {
         const token = await AsyncStorage.getItem('token');
-        const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+        const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
         const base = API_URL.replace('/api','');
         // Opcional: si guardas el id de usuario en storage, puedes unir al room específico
         const user = await AsyncStorage.getItem('user');

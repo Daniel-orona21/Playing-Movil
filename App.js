@@ -95,7 +95,7 @@ export default function App() {
 
   return (
     <NavigationContainer onLayout={onLayoutRootView}>
-      <Stack.Navigator initialRouteName={isAuthenticated ? "Qr" : "Home"}>
+      <Stack.Navigator initialRouteName={isAuthenticated ? "Layout" : "Home"}>
       {/* <Stack.Navigator initialRouteName={"Home"}> */}
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />

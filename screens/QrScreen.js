@@ -186,7 +186,7 @@ const QrScreen = ({ navigation }) => {
             return;
           }
           const token = await AsyncStorage.getItem('token');
-          const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
+          const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
           const linkUrl = `${API_URL}/establecimientos/qr/vincular`;
           console.log('Linking URL:', linkUrl);
           const res = await fetch(linkUrl, {
