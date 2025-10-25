@@ -21,8 +21,8 @@ const Tab = createBottomTabNavigator();
 const LayoutScreen = ({ navigation }) => {
   const [activeTab, setActiveTab] = React.useState('Música');
   const [displayedTab, setDisplayedTab] = React.useState('Música');
-  const fadeAnim = React.useRef(new Animated.Value(0)).current;
-  const imageFadeAnim = React.useRef(new Animated.Value(0)).current;
+  const fadeAnim = React.useRef(new Animated.Value(1)).current;
+  const imageFadeAnim = React.useRef(new Animated.Value(1)).current;
   const [showMusicaAddSongModal, setShowMusicaAddSongModal] = React.useState(false);
   const [selectedSongForModal, setSelectedSongForModal] = React.useState(null);
   const [isAddingSong, setIsAddingSong] = React.useState(false);
@@ -385,21 +385,23 @@ const LayoutScreen = ({ navigation }) => {
       return;
     }
     
+    // Cambiar selección del tab inmediatamente (sin esperar animación)
     setActiveTab(newTab);
     
+    // Fade out
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
-        duration: 0,
+        duration: 50,
         useNativeDriver: true,
       }),
       Animated.timing(imageFadeAnim, {
         toValue: 0,
-        duration: 0,
+        duration: 50,
         useNativeDriver: true,
       }),
     ]).start(() => {
-      setActiveTab(newTab);
+      // Cambiar vista mostrada y fade in
       setDisplayedTab(newTab);
 
       Animated.parallel([
@@ -417,23 +419,28 @@ const LayoutScreen = ({ navigation }) => {
     });
   };
 
-  const renderScreen = () => {
-    switch (displayedTab) {
-      case 'Música':
-        return <MusicaScreen onShowModalChange={handleShowMusicaAddSongModalChange} />;
-      case 'Juego':
-        return <JuegoScreen />;
-      case 'Ordenes':
-        return <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} onShowCuentaModalChange={handleShowCuentaModalChange} />;
-      case 'Ajustes':
-        return <AjustesScreen 
-          navigation={navigation}
-          onShowExitRestaurantModalChange={handleShowExitRestaurantModalChange}
-          onShowLogoutModalChange={handleShowLogoutModalChange}
-        />;
-      default:
-        return <JuegoScreen />;
-    }
+  // Renderizar todos los tabs pero solo mostrar el activo (preserva estado)
+  const renderAllScreens = () => {
+    return (
+      <>
+        <View style={[styles.screenWrapper, displayedTab !== 'Música' && styles.hiddenScreen]} pointerEvents={displayedTab === 'Música' ? 'auto' : 'none'}>
+          <MusicaScreen onShowModalChange={handleShowMusicaAddSongModalChange} />
+        </View>
+        <View style={[styles.screenWrapper, displayedTab !== 'Juego' && styles.hiddenScreen]} pointerEvents={displayedTab === 'Juego' ? 'auto' : 'none'}>
+          <JuegoScreen />
+        </View>
+        <View style={[styles.screenWrapper, displayedTab !== 'Ordenes' && styles.hiddenScreen]} pointerEvents={displayedTab === 'Ordenes' ? 'auto' : 'none'}>
+          <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} onShowCuentaModalChange={handleShowCuentaModalChange} />
+        </View>
+        <View style={[styles.screenWrapper, displayedTab !== 'Ajustes' && styles.hiddenScreen]} pointerEvents={displayedTab === 'Ajustes' ? 'auto' : 'none'}>
+          <AjustesScreen 
+            navigation={navigation}
+            onShowExitRestaurantModalChange={handleShowExitRestaurantModalChange}
+            onShowLogoutModalChange={handleShowLogoutModalChange}
+          />
+        </View>
+      </>
+    );
   };
 
   const contentScale = fadeAnim.interpolate({
@@ -445,6 +452,7 @@ const LayoutScreen = ({ navigation }) => {
     inputRange: [0, 1],
     outputRange: [0, 1],
   });
+
 
   const TabButton = ({ tabName, iconName, label, isSelected, onPress }) => (
     <TouchableOpacity
@@ -473,7 +481,7 @@ const LayoutScreen = ({ navigation }) => {
       
       <BlurView intensity={0} style={styles.blurContainer}>
         <Animated.View style={[styles.screenContainer, { opacity: contentOpacity, transform: [{ scale: contentScale }] }]}>
-          {renderScreen()}
+          {renderAllScreens()}
         </Animated.View>
 
         <View style={styles.tabBar}>
@@ -677,6 +685,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'transparent',
     paddingTop: 40,
+  },
+  screenWrapper: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    paddingTop: 40,
+  },
+  hiddenScreen: {
+    opacity: 0,
+    zIndex: -1,
   },
   tabBar: {
     backgroundColor: 'transparent',
