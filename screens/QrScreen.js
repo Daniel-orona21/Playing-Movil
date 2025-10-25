@@ -49,7 +49,7 @@ const QrScreen = ({ navigation }) => {
       }
     }, [permission, requestPermission]);
 
-    // Al entrar a la pantalla: si ya tiene mesa asignada, redirigir a Layout
+    // Al entrar a la pantalla: verificar autenticación válida
     useFocusEffect(
       useCallback(() => {
         let cancelled = false;
@@ -57,15 +57,38 @@ const QrScreen = ({ navigation }) => {
           try {
             await AuthService.loadStoredAuth();
             if (AuthService.isAuthenticated()) {
-              // fuerza lectura desde BD con el nuevo /profile
+              // Verificar que el token sea válido
               const res = await AuthService.verifyToken();
-              if (!cancelled && res && res.success && res.user && res.user.mesa_id_activa) {
-                navigation.reset({ index: 0, routes: [{ name: 'Layout' }] });
-                return;
+              if (!cancelled) {
+                if (res && res.success && res.user) {
+                  // Token válido, verificar si tiene mesa asignada
+                  if (res.user.mesa_id_activa) {
+                    navigation.reset({ index: 0, routes: [{ name: 'Layout' }] });
+                    return;
+                  }
+                  // Token válido pero sin mesa, puede escanear QR
+                } else {
+                  // Token inválido, cerrar sesión y redirigir a login
+                  console.log('Token inválido, cerrando sesión...');
+                  await AuthService.signOut();
+                  navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+                  return;
+                }
+              }
+            } else {
+              // No hay autenticación, redirigir a login
+              if (!cancelled) {
+                console.log('Sin autenticación, redirigiendo a login...');
+                navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
               }
             }
           } catch (e) {
-            // ignore
+            // Error al verificar token (probablemente inválido o expirado)
+            if (!cancelled) {
+              console.log('Error verificando token:', e.message);
+              await AuthService.signOut();
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
+            }
           }
         })();
         return () => { cancelled = true; };
