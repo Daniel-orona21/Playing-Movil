@@ -272,7 +272,7 @@ export default function BusquedaScreen({ onShowModalChange }) {
                   onPress={() => handleSongPress(song)} 
                   style={styles.songResultButtonWrapper}
                 >
-                  <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
+                  <BlurView intensity={50} tint='dark' style={styles.songResultButton}>
                     {song.imagen_url ? (
                       <Image 
                         source={{ uri: song.imagen_url }} 
@@ -325,7 +325,7 @@ export default function BusquedaScreen({ onShowModalChange }) {
                   onPress={() => handleSongPress(song)} 
                   style={styles.songResultButtonWrapper}
                 >
-                  <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
+                  <BlurView intensity={50} tint='dark' style={styles.songResultButton}>
                     {song.imagen_url ? (
                       <Image 
                         source={{ uri: song.imagen_url }} 
@@ -426,7 +426,7 @@ export default function BusquedaScreen({ onShowModalChange }) {
                           onPress={() => handleSongPress(song)} 
                           style={styles.songResultButtonWrapper}
                         >
-                          <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
+                          <BlurView intensity={50} tint='dark' style={styles.songResultButton}>
                             {song.imagen_url ? (
                               <Image 
                                 source={{ uri: song.imagen_url }} 
@@ -468,7 +468,7 @@ export default function BusquedaScreen({ onShowModalChange }) {
                     onPress={() => handleGenrePress(genre)} 
                     style={styles.genreButtonWrapper}
                   >
-                    <BlurView intensity={20} style={styles.genreButton}>
+                    <BlurView intensity={30} style={styles.genreButton}>
                       <Text style={styles.genreText}>{genre.charAt(0).toUpperCase() + genre.slice(1)}</Text>
                     </BlurView>
                   </TouchableOpacity>

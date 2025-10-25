@@ -128,7 +128,7 @@ export default function ColaScreen() {
           <View style={styles.queueContainer}>
             {queueSongs.map((song) => (
               <View key={song.id} style={styles.songResultButtonWrapper}>
-                <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
+                <BlurView intensity={50} tint='dark' style={styles.songResultButton}>
                   {song.imagen_url ? (
                     <Image 
                       source={{ uri: song.imagen_url }} 
