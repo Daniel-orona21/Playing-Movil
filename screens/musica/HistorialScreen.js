@@ -1,30 +1,93 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native'
-import React from 'react'
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants/Colors';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback } from 'react';
-
-// Datos de ejemplo para el historial de canciones
-const historySongs = [
-  { id: 'h1', title: 'Cancion Historial 1', artist: 'Artista 1', genre: 'Pop' },
-  { id: 'h2', title: 'Hit Historial 2', artist: 'Artista 2', genre: 'Rock' },
-  { id: 'h3', title: 'Ritmo Historial 3', artist: 'Artista 3', genre: 'Reggaeton' },
-  { id: 'h4', title: 'Flow Historial 4', artist: 'Artista 4', genre: 'Rap' },
-  { id: 'h5', title: 'Beat Historial 5', artist: 'Artista 5', genre: 'Electrónica' },
-  { id: 'h6', title: 'House Historial 6', artist: 'Artista 6', genre: 'House' },
-  { id: 'h7', title: 'Melodia Historial 7', artist: 'Artista 7', genre: 'Regional' },
-  { id: 'h8', title: 'Urbano Historial 8', artist: 'Artista 8', genre: 'Urbano' },
-];
+import MusicaSocketService from '../../services/MusicaSocketService';
+import AuthService from '../../services/AuthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function HistorialScreen() {
+  const [historySongs, setHistorySongs] = useState([]);
+  const [establecimientoId, setEstablecimientoId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const unsubscribeHistoryUpdate = useRef(null);
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('../../assets/fonts/Michroma-Regular.ttf'),
     'Onest-Regular': require('../../assets/fonts/Onest-Regular.ttf'),
     'Onest-Bold': require('../../assets/fonts/Onest-Bold.ttf'),
   });
+
+  // Función para cargar el historial
+  const loadHistory = useCallback(async (estabId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/musica/history?establecimientoId=${estabId}&limit=50`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.history) {
+          setHistorySongs(data.history);
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando historial:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // useEffect para obtener el establecimientoId y cargar el historial
+  useEffect(() => {
+    const fetchAndLoadHistory = async () => {
+      try {
+        await AuthService.loadStoredAuth();
+        if (AuthService.isAuthenticated()) {
+          const res = await AuthService.verifyToken();
+          if (res && res.success && res.user && res.user.mesa_id_activa) {
+            const token = await AsyncStorage.getItem('token');
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+            
+            const mesaRes = await fetch(`${API_URL}/establecimientos/mesa/${res.user.mesa_id_activa}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (mesaRes.ok) {
+              const mesaData = await mesaRes.json();
+              if (mesaData.success && mesaData.mesa) {
+                const estabId = mesaData.mesa.establecimiento_id;
+                setEstablecimientoId(estabId);
+                
+                // Cargar historial inicial
+                await loadHistory(estabId);
+                
+                // Suscribirse a actualizaciones del historial
+                unsubscribeHistoryUpdate.current = MusicaSocketService.on('history_update', () => {
+                  loadHistory(estabId);
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error obteniendo establecimiento:', error);
+        setLoading(false);
+      }
+    };
+    
+    fetchAndLoadHistory();
+    
+    // Cleanup
+    return () => {
+      if (unsubscribeHistoryUpdate.current) unsubscribeHistoryUpdate.current();
+    };
+  }, [loadHistory]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -36,26 +99,55 @@ export default function HistorialScreen() {
     return null;
   }
 
+  // Función para formatear fecha/hora
+  const formatDate = (dateString) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return 'Ahora';
+    if (diffMins < 60) return `Hace ${diffMins} min`;
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `Hace ${diffHours}h`;
+    const diffDays = Math.floor(diffHours / 24);
+    return `Hace ${diffDays}d`;
+  };
+
   return (
     <View style={styles.contenido} onLayout={onLayoutRootView}>
       <Text style={styles.texto}>Historial</Text>
       <ScrollView style={styles.scroll}>
         <View style={styles.historyContainer}>
-          {historySongs.map((song) => (
-            <View key={song.id} style={styles.songResultButtonWrapper}>
-              <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
-                <View style={styles.portada}>
-                  <MaterialIcons name="music-note" size={15} color="gray" />
-                </View>
-                <View style={styles.infoCancion}>
-                  <Text style={styles.songTitle}>{song.title}</Text>
-                  <Text style={styles.songArtist}>{song.artist}</Text>
-                </View>
-              </BlurView>
-            </View>
-          ))}
-          {historySongs.length === 0 && (
+          {loading ? (
+            <Text style={styles.noResultsText}>Cargando...</Text>
+          ) : historySongs.length === 0 ? (
             <Text style={styles.noResultsText}>No hay canciones en el historial</Text>
+          ) : (
+            historySongs.map((song) => (
+              <View key={song.id_historial} style={styles.songResultButtonWrapper}>
+                <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
+                  {song.imagen_url ? (
+                    <Image 
+                      source={{ uri: song.imagen_url }} 
+                      style={styles.portada}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.portada}>
+                      <MaterialIcons name="music-note" size={15} color="gray" />
+                    </View>
+                  )}
+                  <View style={styles.infoCancion}>
+                    <Text style={styles.songTitle} numberOfLines={1}>{song.titulo}</Text>
+                    <Text style={styles.songArtist} numberOfLines={1}>{song.artista}</Text>
+                  </View>
+                  <View style={styles.tiempoContainer}>
+                    <Text style={styles.tiempoTexto}>{formatDate(song.reproducida_en)}</Text>
+                  </View>
+                </BlurView>
+              </View>
+            ))
           )}
         </View>
       </ScrollView>
@@ -95,7 +187,21 @@ const styles = StyleSheet.create({
     height: 47,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10
+    borderRadius: 10,
+    overflow: 'hidden'
+  },
+  infoCancion: {
+    flex: 1,
+    justifyContent: 'center',
+    marginRight: 10
+  },
+  tiempoContainer: {
+    paddingHorizontal: 10
+  },
+  tiempoTexto: {
+    color: Colors.textoSecundario,
+    fontSize: 11,
+    fontFamily: 'Onest-Regular',
   },
   songTitle: {
     color: Colors.textoPrincipal,

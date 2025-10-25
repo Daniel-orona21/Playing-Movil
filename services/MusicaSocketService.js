@@ -22,7 +22,8 @@ class MusicaSocketService {
       track_ended: [],
       playback_state_change: [],
       playback_progress: [],
-      queue_update: []
+      queue_update: [],
+      history_update: []
     };
   }
 
@@ -87,6 +88,10 @@ class MusicaSocketService {
 
     this.socket.on('queue_update', (data) => {
       this.emitToListeners('queue_update', data);
+    });
+
+    this.socket.on('history_update', (data) => {
+      this.emitToListeners('history_update', data);
     });
   }
 

@@ -1,30 +1,95 @@
-import { View, Text, StyleSheet, ScrollView } from 'react-native'
-import React from 'react'
+import { View, Text, StyleSheet, ScrollView, Image } from 'react-native'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants/Colors';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback } from 'react';
-
-// Datos de ejemplo para la cola de reproducción
-const queueSongs = [
-  { id: 'q1', title: 'Cancion en Cola 1', artist: 'Artista 1', genre: 'Pop' },
-  { id: 'q2', title: 'Hit en Cola 2', artist: 'Artista 2', genre: 'Rock' },
-  { id: 'q3', title: 'Ritmo en Cola 3', artist: 'Artista 3', genre: 'Reggaeton' },
-  { id: 'q4', title: 'Flow en Cola 4', artist: 'Artista 4', genre: 'Rap' },
-  { id: 'q5', title: 'Beat en Cola 5', artist: 'Artista 5', genre: 'Electrónica' },
-  { id: 'q6', title: 'House en Cola 6', artist: 'Artista 6', genre: 'House' },
-  { id: 'q7', title: 'Melodia en Cola 7', artist: 'Artista 7', genre: 'Regional' },
-  { id: 'q8', title: 'Urbano en Cola 8', artist: 'Artista 8', genre: 'Urbano' },
-];
+import MusicaSocketService from '../../services/MusicaSocketService';
+import AuthService from '../../services/AuthService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ColaScreen() {
+  const [queueSongs, setQueueSongs] = useState([]);
+  const [establecimientoId, setEstablecimientoId] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const unsubscribeQueueUpdate = useRef(null);
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('../../assets/fonts/Michroma-Regular.ttf'),
     'Onest-Regular': require('../../assets/fonts/Onest-Regular.ttf'),
     'Onest-Bold': require('../../assets/fonts/Onest-Bold.ttf'),
   });
+
+  // Función para cargar la cola
+  const loadQueue = useCallback(async (estabId) => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/musica/queue?establecimientoId=${estabId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.queue) {
+          // Filtrar solo las canciones 'pending' (excluir la que está 'playing')
+          const pendingQueue = data.queue.filter(song => song.status === 'pending');
+          setQueueSongs(pendingQueue);
+        }
+      }
+    } catch (error) {
+      console.error('Error cargando cola:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // useEffect para obtener el establecimientoId y cargar la cola
+  useEffect(() => {
+    const fetchAndLoadQueue = async () => {
+      try {
+        await AuthService.loadStoredAuth();
+        if (AuthService.isAuthenticated()) {
+          const res = await AuthService.verifyToken();
+          if (res && res.success && res.user && res.user.mesa_id_activa) {
+            const token = await AsyncStorage.getItem('token');
+            const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+            
+            const mesaRes = await fetch(`${API_URL}/establecimientos/mesa/${res.user.mesa_id_activa}`, {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            if (mesaRes.ok) {
+              const mesaData = await mesaRes.json();
+              if (mesaData.success && mesaData.mesa) {
+                const estabId = mesaData.mesa.establecimiento_id;
+                setEstablecimientoId(estabId);
+                
+                // Cargar cola inicial
+                await loadQueue(estabId);
+                
+                // Suscribirse a actualizaciones de la cola
+                unsubscribeQueueUpdate.current = MusicaSocketService.on('queue_update', () => {
+                  loadQueue(estabId);
+                });
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Error obteniendo establecimiento:', error);
+        setLoading(false);
+      }
+    };
+    
+    fetchAndLoadQueue();
+    
+    // Cleanup
+    return () => {
+      if (unsubscribeQueueUpdate.current) unsubscribeQueueUpdate.current();
+    };
+  }, [loadQueue]);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -41,21 +106,35 @@ export default function ColaScreen() {
       <Text style={styles.texto}>A continuación...</Text>
       <ScrollView style={styles.scroll}>
         <View style={styles.queueContainer}>
-          {queueSongs.map((song) => (
-            <View key={song.id} style={styles.songResultButtonWrapper}>
-              <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
-                <View style={styles.portada}>
-                  <MaterialIcons name="music-note" size={15} color="gray" />
-                </View>
-                <View style={styles.infoCancion}>
-                  <Text style={styles.songTitle}>{song.title}</Text>
-                  <Text style={styles.songArtist}>{song.artist}</Text>
-                </View>
-              </BlurView>
-            </View>
-          ))}
-          {queueSongs.length === 0 && (
+          {loading ? (
+            <Text style={styles.noResultsText}>Cargando...</Text>
+          ) : queueSongs.length === 0 ? (
             <Text style={styles.noResultsText}>No hay canciones en la cola</Text>
+          ) : (
+            queueSongs.map((song) => (
+              <View key={song.id} style={styles.songResultButtonWrapper}>
+                <BlurView intensity={20} tint='dark' style={styles.songResultButton}>
+                  {song.imagen_url ? (
+                    <Image 
+                      source={{ uri: song.imagen_url }} 
+                      style={styles.portada}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.portada}>
+                      <MaterialIcons name="music-note" size={15} color="gray" />
+                    </View>
+                  )}
+                  <View style={styles.infoCancion}>
+                    <Text style={styles.songTitle} numberOfLines={1}>{song.titulo}</Text>
+                    <Text style={styles.songArtist} numberOfLines={1}>{song.artista}</Text>
+                  </View>
+                  {/* <View style={styles.posicionContainer}>
+                    <Text style={styles.posicionTexto}>#{song.posicion}</Text>
+                  </View> */}
+                </BlurView>
+              </View>
+            ))
           )}
         </View>
       </ScrollView>
@@ -95,7 +174,21 @@ const styles = StyleSheet.create({
     height: 47,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10
+    borderRadius: 10,
+    overflow: 'hidden'
+  },
+  infoCancion: {
+    flex: 1,
+    justifyContent: 'center',
+    marginRight: 10
+  },
+  posicionContainer: {
+    paddingHorizontal: 10
+  },
+  posicionTexto: {
+    color: Colors.textoSecundario,
+    fontSize: 12,
+    fontFamily: 'Onest-Bold',
   },
   songTitle: {
     color: Colors.textoPrincipal,
