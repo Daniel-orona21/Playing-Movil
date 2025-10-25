@@ -263,7 +263,10 @@ export default function BusquedaScreen({ onShowModalChange }) {
           contentContainerStyle={loading ? styles.scrollContentLoading : null}
         >
           {loading ? (
-            <ActivityIndicator size="large" color={'white'} style={styles.loader} />
+            <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="white" />
+                    <Text style={styles.loadingText}>Cargando...</Text>
+                  </View>
           ) : (
             <View style={styles.resultsContainer}>
               {artistSongs.map((song, index) => (
@@ -316,7 +319,10 @@ export default function BusquedaScreen({ onShowModalChange }) {
           contentContainerStyle={loading ? styles.scrollContentLoading : null}
         >
           {loading ? (
-            <ActivityIndicator size="large" color={'white'} style={styles.loader} />
+            <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="white" />
+                    <Text style={styles.loadingText}>Cargando...</Text>
+                  </View>
           ) : (
             <View style={styles.resultsContainer}>
               {genreSongs.map((song, index) => (
@@ -358,30 +364,33 @@ export default function BusquedaScreen({ onShowModalChange }) {
   return (
     <View style={styles.contenido}>
       <BlurView intensity={15} style={styles.blurContainer}>
-        <Ionicons style={styles.iconoBuscar} name="search-outline" size={20} color={'white'} />
-        <TextInput
-          placeholder="Buscar..."
-          placeholderTextColor="rgba(255,255,255,0.6)"
-          style={styles.input}
-          value={searchTerm}
-          onChangeText={setSearchTerm}
-        />
-        {searchTerm !== '' && (
-          <TouchableOpacity onPress={handleClearSearch}>
-            <Ionicons style={styles.iconoBuscar} name="close" size={20} color={'white'} />
-          </TouchableOpacity>
-        )}
-      </BlurView>
+      <Ionicons style={styles.iconoBuscar} name="search-outline" size={20} color={'white'} />
+      <TextInput
+        placeholder="Buscar..."
+        placeholderTextColor="rgba(255,255,255,0.6)"
+        style={styles.input}
+        value={searchTerm}
+        onChangeText={setSearchTerm}
+      />
+      {searchTerm !== '' && (
+        <TouchableOpacity onPress={handleClearSearch}>
+          <Ionicons style={styles.iconoBuscar} name="close" size={20} color={'white'} />
+        </TouchableOpacity>
+      )}
+    </BlurView>
 
       <ScrollView 
         style={styles.scroll}
         contentContainerStyle={(searching || loading) ? styles.scrollContentLoading : null}
       >
-        {searchTerm !== '' ? (
+      {searchTerm !== '' ? (
           // Resultados de búsqueda
           <View style={styles.searchResultsContainer}>
             {searching ? (
-              <ActivityIndicator size="large" color={'white'} style={styles.loader} />
+              <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="white" />
+                    <Text style={styles.loadingText}>Buscando...</Text>
+                  </View>
             ) : (
               <>
                 {/* Artistas */}
@@ -405,14 +414,14 @@ export default function BusquedaScreen({ onShowModalChange }) {
                             ) : (
                               <View style={styles.artistImage}>
                                 <Ionicons name="person" size={40} color="gray" />
-                              </View>
+              </View>
                             )}
                             <Text style={styles.artistName} numberOfLines={2}>{artist.nombre}</Text>
-                          </BlurView>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  </View>
+              </BlurView>
+            </TouchableOpacity>
+          ))}
+        </View>
+          </View>
                 )}
 
                 {/* Canciones */}
@@ -434,17 +443,17 @@ export default function BusquedaScreen({ onShowModalChange }) {
                                 resizeMode="cover"
                               />
                             ) : (
-                              <View style={styles.portada}>
-                                <MaterialIcons name="music-note" size={15} color="gray" />
-                              </View>
+              <View style={styles.portada}>
+              <MaterialIcons name="music-note" size={15} color="gray" />
+              </View>
                             )}
-                            <View style={styles.infoCancion}>
+                <View style={styles.infoCancion}>
                               <Text style={styles.songTitle} numberOfLines={1}>{song.titulo}</Text>
                               <Text style={styles.songArtist} numberOfLines={1}>{song.artista}</Text>
-                            </View>
-                          </BlurView>
-                        </TouchableOpacity>
-                      ))}
+                  </View>
+              </BlurView>
+            </TouchableOpacity>
+          ))}
                     </View>
                   </View>
                 )}
@@ -453,15 +462,18 @@ export default function BusquedaScreen({ onShowModalChange }) {
                   <Text style={styles.noResultsText}>No se encontraron resultados para "{searchTerm}"</Text>
                 )}
               </>
-            )}
-          </View>
-        ) : (
+          )}
+        </View>
+      ) : (
           // Géneros
           <>
             {loading ? (
-              <ActivityIndicator size="large" color={'white'} style={styles.loader} />
+              <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="white" />
+                    <Text style={styles.loadingText}>Cargando...</Text>
+                  </View>
             ) : (
-              <View style={styles.genresContainer}>
+        <View style={styles.genresContainer}>
                 {genres.map((genre, index) => (
                   <TouchableOpacity 
                     key={`${genre}-${index}`} 
@@ -470,14 +482,14 @@ export default function BusquedaScreen({ onShowModalChange }) {
                   >
                     <BlurView intensity={30} style={styles.genreButton}>
                       <Text style={styles.genreText}>{genre.charAt(0).toUpperCase() + genre.slice(1)}</Text>
-                    </BlurView>
-                  </TouchableOpacity>
-                ))}
-              </View>
+              </BlurView>
+            </TouchableOpacity>
+          ))}
+        </View>
             )}
           </>
-        )}
-      </ScrollView>
+      )}
+    </ScrollView>
     </View>
   );
 }
@@ -501,7 +513,7 @@ const styles = StyleSheet.create({
   input: {
     color: 'white',
     flex: 1,
-    fontFamily: 'Onest-Regular',
+    fontFamily: 'Onest-Regular', 
   },
   iconoBuscar: {
     // Icon styling
@@ -521,7 +533,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    columnGap: 10,
+    columnGap: 10, 
   },
   genreButtonWrapper: {
     width: '48%',
@@ -539,10 +551,21 @@ const styles = StyleSheet.create({
   genreText: {
     color: 'white',
     fontSize: 14,
-    fontFamily: 'Onest-Bold',
+    fontFamily: 'Onest-Bold', 
   },
   searchResultsContainer: {
     gap: 20,
+  },
+    loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 15,
+  },
+  loadingText: {
+    color: Colors.textoSecundario,
+    fontSize: 16,
+    fontFamily: 'Onest-Regular',
   },
   sectionContainer: {
     gap: 10,

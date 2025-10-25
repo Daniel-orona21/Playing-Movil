@@ -134,7 +134,10 @@ export default function HistorialScreen() {
         contentContainerStyle={loading ? styles.scrollContentLoading : null}
       >
         {loading ? (
-          <ActivityIndicator size="large" color="white" style={styles.loader} />
+           <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="white" />
+                    <Text style={styles.loadingText}>Cargando historial...</Text>
+                  </View>
         ) : historySongs.length === 0 ? (
           <Text style={styles.noResultsText}>No hay canciones en el historial</Text>
         ) : (
@@ -192,6 +195,17 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 15,
+  },
+  loadingText: {
+    color: Colors.textoSecundario,
+    fontSize: 16,
+    fontFamily: 'Onest-Regular',
   },
   loader: {
     marginVertical: 40,

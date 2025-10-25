@@ -195,7 +195,7 @@ const MusicaScreen = ({
 
     switch (selectedNav) {
       case 'letras':
-        return <LetrasScreen />;
+        return <LetrasScreen initialTrack={currentTrack} initialTime={currentTime} />;
       case 'cola':
         return <ColaScreen />;
       case 'historial':
