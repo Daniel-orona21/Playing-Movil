@@ -23,7 +23,9 @@ class MusicaSocketService {
       playback_state_change: [],
       playback_progress: [],
       queue_update: [],
-      history_update: []
+      history_update: [],
+      votes_update: [],
+      track_skipped: []
     };
   }
 
@@ -92,6 +94,14 @@ class MusicaSocketService {
 
     this.socket.on('history_update', (data) => {
       this.emitToListeners('history_update', data);
+    });
+
+    this.socket.on('votes_update', (data) => {
+      this.emitToListeners('votes_update', data);
+    });
+
+    this.socket.on('track_skipped', (data) => {
+      this.emitToListeners('track_skipped', data);
     });
   }
 

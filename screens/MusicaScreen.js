@@ -29,6 +29,9 @@ const MusicaScreen = ({
   // Estados para los botones
   const [isLiked, setIsLiked] = useState(false);
   const [isSkipping, setIsSkipping] = useState(false);
+  const [colaCancionId, setColaCancionId] = useState(null);
+  const [likesCount, setLikesCount] = useState(0);
+  const [skipsCount, setSkipsCount] = useState(0);
   
   // Estado para la navegación
   const [selectedNav, setSelectedNav] = useState(null);
@@ -56,6 +59,8 @@ const MusicaScreen = ({
   const unsubscribeTrackStarted = useRef(null);
   const unsubscribePlaybackState = useRef(null);
   const unsubscribeProgress = useRef(null);
+  const unsubscribeVotesUpdate = useRef(null);
+  const unsubscribeTrackSkipped = useRef(null);
 
   const formatTime = (seconds) => {
     const mins = Math.floor(seconds / 60);
@@ -69,6 +74,40 @@ const MusicaScreen = ({
 
   const getRemainingTime = () => {
     return totalDuration - currentTime;
+  };
+
+  // Función para cargar el estado de voto del usuario
+  const loadUserVoteStatus = async (colaId, token, apiUrl) => {
+    try {
+      const response = await fetch(`${apiUrl}/musica/votes/${colaId}/user`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsLiked(data.hasLiked);
+        setIsSkipping(data.hasSkipped);
+      }
+    } catch (error) {
+      console.error('Error cargando estado de voto del usuario:', error);
+    }
+  };
+
+  // Función para cargar los contadores de votos
+  const loadVoteCounts = async (colaId, token, apiUrl) => {
+    try {
+      const response = await fetch(`${apiUrl}/musica/votes/${colaId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setLikesCount(data.likes);
+        setSkipsCount(data.skips);
+      }
+    } catch (error) {
+      console.error('Error cargando contadores de votos:', error);
+    }
   };
 
   const handleNavPress = (navType) => {
@@ -104,14 +143,72 @@ const MusicaScreen = ({
     }
   };
 
-  const handleLikePress = () => {
+  const handleLikePress = async () => {
+    if (!colaCancionId) return;
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsLiked(!isLiked);
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/musica/vote`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          colaCancionId: colaCancionId,
+          type: 'like'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsLiked(data.voted); // true si se agregó, false si se removió
+        setLikesCount(data.likes);
+        setSkipsCount(data.skips);
+      }
+    } catch (error) {
+      console.error('Error al votar like:', error);
+    }
   };
 
-  const handleSkipPress = () => {
+  const handleSkipPress = async () => {
+    if (!colaCancionId) return;
+    
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setIsSkipping(!isSkipping);
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/musica/vote`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          colaCancionId: colaCancionId,
+          type: 'skip'
+        })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setIsSkipping(data.voted); // true si se agregó, false si se removió
+        setLikesCount(data.likes);
+        setSkipsCount(data.skips);
+        
+        if (data.autoSkipped) {
+          console.log('Canción skipeada automáticamente por mayoría de votos');
+        }
+      }
+    } catch (error) {
+      console.error('Error al votar skip:', error);
+    }
   };
 
   const renderContent = () => {
@@ -246,25 +343,50 @@ const MusicaScreen = ({
                     setCurrentTime(0);
                     setTotalDuration(playingData.currentPlaying.duracion || 0);
                     setIsPlaying(true);
+                    
+                    // Cargar el colaCancionId y el estado de votos
+                    if (playingData.currentPlaying.cola_id) {
+                      setColaCancionId(playingData.currentPlaying.cola_id);
+                      await loadUserVoteStatus(playingData.currentPlaying.cola_id, token, API_URL);
+                      await loadVoteCounts(playingData.currentPlaying.cola_id, token, API_URL);
+                    }
                   }
                 }
                 
                 // Suscribirse a eventos de reproducción
-                unsubscribePlaybackUpdate.current = MusicaSocketService.on('playback_update', (data) => {
+                unsubscribePlaybackUpdate.current = MusicaSocketService.on('playback_update', async (data) => {
                   if (data.currentTrack) {
                     setCurrentTrack(data.currentTrack);
                     setIsPlaying(data.isPlaying || false);
                     setCurrentTime(Math.floor((data.position || 0) / 1000));
                     setTotalDuration(data.currentTrack.duracion || 0);
+                    
+                    // Si la canción cambió, actualizar el colaCancionId y cargar votos
+                    if (data.currentTrack.cola_id && data.currentTrack.cola_id !== colaCancionId) {
+                      setColaCancionId(data.currentTrack.cola_id);
+                      const token = await AsyncStorage.getItem('token');
+                      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+                      await loadUserVoteStatus(data.currentTrack.cola_id, token, API_URL);
+                      await loadVoteCounts(data.currentTrack.cola_id, token, API_URL);
+                    }
                   }
                 });
                 
-                unsubscribeTrackStarted.current = MusicaSocketService.on('track_started', (data) => {
+                unsubscribeTrackStarted.current = MusicaSocketService.on('track_started', async (data) => {
                   if (data.track) {
                     setCurrentTrack(data.track);
                     setIsPlaying(true);
                     setCurrentTime(0);
                     setTotalDuration(data.track.duracion || 0);
+                    
+                    // Actualizar colaCancionId y cargar votos para la nueva canción
+                    if (data.track.cola_id) {
+                      setColaCancionId(data.track.cola_id);
+                      const token = await AsyncStorage.getItem('token');
+                      const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+                      await loadUserVoteStatus(data.track.cola_id, token, API_URL);
+                      await loadVoteCounts(data.track.cola_id, token, API_URL);
+                    }
                   }
                 });
                 
@@ -280,6 +402,24 @@ const MusicaScreen = ({
                     setCurrentTime(Math.floor(data.position / 1000));
                     setTotalDuration(Math.floor(data.duration / 1000));
                   }
+                });
+                
+                // Suscribirse a actualizaciones de votos
+                unsubscribeVotesUpdate.current = MusicaSocketService.on('votes_update', (data) => {
+                  if (data.colaCancionId === colaCancionId) {
+                    setLikesCount(data.likes);
+                    setSkipsCount(data.skips);
+                  }
+                });
+                
+                // Suscribirse a evento de skip automático
+                unsubscribeTrackSkipped.current = MusicaSocketService.on('track_skipped', async (data) => {
+                  console.log('Canción skipeada automáticamente:', data);
+                  // La canción fue skipeada, resetear estados
+                  setIsLiked(false);
+                  setIsSkipping(false);
+                  setLikesCount(0);
+                  setSkipsCount(0);
                 });
               }
             }
@@ -298,6 +438,8 @@ const MusicaScreen = ({
       if (unsubscribeTrackStarted.current) unsubscribeTrackStarted.current();
       if (unsubscribePlaybackState.current) unsubscribePlaybackState.current();
       if (unsubscribeProgress.current) unsubscribeProgress.current();
+      if (unsubscribeVotesUpdate.current) unsubscribeVotesUpdate.current();
+      if (unsubscribeTrackSkipped.current) unsubscribeTrackSkipped.current();
       MusicaSocketService.disconnect();
     };
   }, []);
