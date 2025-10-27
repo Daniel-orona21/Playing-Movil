@@ -1,6 +1,6 @@
 import Feather from '@expo/vector-icons/Feather';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { Colors } from '../constants/Colors';
 import { useFonts } from 'expo-font';
@@ -8,14 +8,16 @@ import * as SplashScreen from 'expo-splash-screen';
 import React, { useCallback, useState, useEffect, useRef } from 'react';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { Ionicons } from '@expo/vector-icons';
+import AuthService from '../services/AuthService';
+import OrdenesSocketService from '../services/OrdenesSocketService';
 
 // Componente de barra de progreso
-const ProgressBar = ({ startTime, duration, currentTime }) => {
+const ProgressBar = ({ startTime, duration, currentTime, isOrdenEntregada }) => {
   if (!startTime) return null;
 
   const elapsed = Math.floor((currentTime - startTime) / 1000);
   const progress = Math.min(elapsed / duration, 1);
-  const isCompleted = progress >= 1;
+  const isCompleted = isOrdenEntregada; // Cambiar solo si la orden está marcada como entregada
 
   // Debug logs
   // console.log('ProgressBar Debug:', {
@@ -95,11 +97,11 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
   const [isCooldownActive, setIsCooldownActive] = useState(false);
   const [cooldownTime, setCooldownTime] = useState(0);
   const cooldownIntervalRef = useRef(null);
-  const [hasActiveOrder, setHasActiveOrder] = useState(false);
-  const [orderStartTime, setOrderStartTime] = useState(null);
-  const [orderDuration, setOrderDuration] = useState(.1 * 60); // 15 minutos en segundos
+  const [orders, setOrders] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState(new Date());
   const orderTimerRef = useRef(null);
+  const [mesaActiva, setMesaActiva] = useState(null);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -145,38 +147,114 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
     }
   };
 
-  const handleSimularOrden = () => {
-    const now = new Date();
-    setOrderStartTime(now);
-    setCurrentTime(now);
-    setHasActiveOrder(true);
+  // Cargar órdenes del usuario al montar el componente
+  useEffect(() => {
+    loadOrdenesUsuario();
     
-    // Iniciar timer de la orden
+    // Iniciar timer para actualizar tiempos (cada segundo para el progress bar)
     orderTimerRef.current = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
+
+    return () => {
+      if (orderTimerRef.current) {
+        clearInterval(orderTimerRef.current);
+      }
+    };
+  }, []);
+
+  // Configurar listeners de sockets
+  useEffect(() => {
+    const user = AuthService.getCurrentUser();
+    if (!user) return;
+    
+    const userId = user.id_user || user.id; // Soportar ambos formatos
+    
+    // Obtener el establecimiento ID desde la mesa activa del cliente
+    const setupSocket = async () => {
+      try {
+        const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+        const response = await fetch(`${apiUrl}/establecimientos/activo`, {
+          headers: {
+            'Authorization': `Bearer ${AuthService.getToken()}`
+          }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.establecimiento) {
+          const establecimientoId = data.establecimiento.id_establecimiento;
+          OrdenesSocketService.connect(establecimientoId);
+          
+          // Listener para nuevas órdenes
+          OrdenesSocketService.on('orden_created', (ordenData) => {
+            // Verificar si la orden es para este usuario
+            if (ordenData.usuario_id === userId) {
+              loadOrdenesUsuario();
+            }
+          });
+          
+          // Listener para órdenes actualizadas
+          OrdenesSocketService.on('orden_updated', () => {
+            loadOrdenesUsuario();
+          });
+          
+          // Listener para órdenes eliminadas
+          OrdenesSocketService.on('ordenes_deleted', () => {
+            loadOrdenesUsuario();
+          });
+        }
+      } catch (error) {
+        console.error('Error al configurar socket:', error);
+      }
+    };
+
+    setupSocket();
+
+    // Cleanup al desmontar
+    return () => {
+      OrdenesSocketService.disconnect();
+    };
+  }, []);
+
+  const loadOrdenesUsuario = async () => {
+    try {
+      setIsLoading(true);
+      const token = AuthService.getToken();
+      const response = await OrdenesSocketService.getOrdenesUsuario(token);
+      
+      if (response.success) {
+        setOrders(response.ordenes || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar órdenes:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const getOrderProgress = () => {
-    if (!orderStartTime) return 0;
-    
-    const elapsed = Math.floor((currentTime - orderStartTime) / 1000);
-    const progress = Math.min(elapsed / orderDuration, 1);
-    return progress;
+  // Calcular el tiempo restante dinámicamente basándose en la fecha de creación
+  // Usa tiempo_estimado + tiempo_anadido para el cálculo correcto
+  const calcularTiempoRestante = (orden) => {
+    const fechaCreacion = new Date(orden.creada_en);
+    const ahora = new Date();
+    const minutosTranscurridos = Math.floor((ahora.getTime() - fechaCreacion.getTime()) / 60000);
+    const tiempoTotal = orden.tiempo_estimado + (orden.tiempo_anadido || 0);
+    const tiempoRestante = Math.max(tiempoTotal - minutosTranscurridos, 0);
+    return tiempoRestante;
   };
 
-  const getOrderTimeInfo = () => {
-    if (!orderStartTime) return { elapsed: 0, remaining: orderDuration, isCompleted: false };
-    
-    const elapsed = Math.floor((currentTime - orderStartTime) / 1000);
-    const remaining = Math.max(orderDuration - elapsed, 0);
-    const isCompleted = remaining === 0;
-    
-    return { elapsed, remaining, isCompleted };
-  };
+  const getOrderStatusInfo = (orden) => {
+    const estadoMap = {
+      'pendiente': 'Pendiente',
+      'en_preparacion': 'En preparación',
+      'entregada': 'Entregada',
+      'pagada': 'Pagada'
+    };
 
-  const getOrderStatusInfo = () => {
-    const { isCompleted } = getOrderTimeInfo();
+    const estadoMostrar = estadoMap[orden.status] || orden.status;
+    const tiempoRestante = calcularTiempoRestante(orden);
+    const isCompleted = orden.status === 'entregada' || orden.status === 'pagada';
     
     if (isCompleted) {
       return {
@@ -184,18 +262,31 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
         subtitle: "¡Provecho!",
         statusText: "Entregada",
         showWaitTime: false,
-        icon: "information-circle"
+        icon: "information-circle",
+        tiempoRestante: 0,
+        isCompleted: true
       };
     } else {
       return {
         title: "Orden realizada",
         subtitle: "Por favor espera, tu orden está siendo preparada",
-        statusText: "En preparación",
-        waitTime: "15 minutos",
+        statusText: estadoMostrar,
+        waitTime: `${tiempoRestante} minutos`,
         showWaitTime: true,
-        icon: "information-circle-outline"
+        icon: "information-circle-outline",
+        tiempoRestante: tiempoRestante,
+        isCompleted: false
       };
     }
+  };
+
+  const getOrderProgress = (orden) => {
+    const fechaCreacion = new Date(orden.creada_en);
+    const tiempoTotal = orden.tiempo_estimado + (orden.tiempo_anadido || 0);
+    const tiempoOriginalSegundos = tiempoTotal * 60;
+    const elapsed = Math.floor((currentTime.getTime() - fechaCreacion.getTime()) / 1000);
+    const progress = Math.min(elapsed / tiempoOriginalSegundos, 1);
+    return progress;
   };
 
   const formatTime = (seconds) => {
@@ -232,9 +323,23 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
     return null;
   }
 
+  // Mostrar loading mientras carga
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]} onLayout={onLayoutRootView}>
+        <ActivityIndicator size="large" color="white" />
+        <Text style={{ color: 'white', marginTop: 10 }}>Cargando órdenes...</Text>
+        <StatusBar style="light" />
+      </View>
+    );
+  }
+
+  // Filtrar órdenes activas (no pagadas)
+  const ordenesActivas = orders.filter(o => o.status !== 'pagada');
+
   return (
     <View style={styles.container} onLayout={onLayoutRootView}>
-      {!hasActiveOrder ? (
+      {ordenesActivas.length === 0 ? (
         <View style={styles.sinOrden}>
           <Text style={styles.tituloSin}>Aún no tienes una orden activa</Text>
           <View style={styles.contenidoSinOrden}>
@@ -269,127 +374,128 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
                 {isCooldownActive ? `Esperar ${formatTime(cooldownTime)}` : 'Llamar al mesero'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.boton1} onPress={handleSimularOrden}>
-              <Ionicons style={styles.icono} name="timer-outline" size={24} color="rgba(255, 255, 255, 0.56)" />
-              <Text style={styles.textoBtn}>Simular orden</Text>
-            </TouchableOpacity>
           </View>
         </View>
       ) : (
-        <View style={styles.contenidoConOrden}>
-          <Text style={styles.tituloConOrden}>Tus órdenes</Text>
-        <View style={styles.ordenYboton}>
-        <View style={styles.ordenItem}>
-            {(() => {
-              const statusInfo = getOrderStatusInfo();
+        <>
+        <View style={styles.contenedorScroll}>
+          <ScrollView style={styles.contenidoConOrden} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <Text style={styles.tituloConOrden}>Tus órdenes ({ordenesActivas.length})</Text>
+            
+            {ordenesActivas.map((orden) => {
+              const statusInfo = getOrderStatusInfo(orden);
+              const fechaCreacion = new Date(orden.creada_en);
+              // Usar tiempo total (estimado + añadido) para el progress bar
+              const tiempoTotal = orden.tiempo_estimado + (orden.tiempo_anadido || 0);
+              const tiempoTotalSegundos = tiempoTotal * 60;
+              
               return (
-                <>
-                  <Text style={styles.ordenTitulo}>{statusInfo.title}</Text>
+                <View key={orden.id_orden} style={styles.ordenItem}>
+                <View key={orden.id_orden} style={styles.ordenHeader}>
+                <Text style={styles.ordenTitulo}>{statusInfo.title}</Text>
+                  {orden.numero_orden && (
+                    <Text style={styles.ordenSubTitulo2}>#{orden.numero_orden}</Text>
+                  )}
+                  </View>
                   <Text style={styles.ordenSubTitulo}>{statusInfo.subtitle}</Text>
                   <View style={styles.contenedorInfo}>
-                  {statusInfo.showWaitTime && (
+                    {statusInfo.showWaitTime && (
+                      <View style={styles.contenedorOrden}>
+                        <Ionicons name="timer-outline" size={24} color="white" />
+                        <View style={styles.contenedorTexto}>
+                          <Text style={styles.estadoTitulo}>Tiempo estimado de espera</Text>
+                          <Text style={styles.estadoInfo}>{statusInfo.waitTime}</Text>
+                        </View>
+                      </View>
+                    )}
                     <View style={styles.contenedorOrden}>
-                    <Ionicons name="timer-outline" size={24} color="white" />
+                      <Ionicons name={statusInfo.icon} size={24} color="white" />
                       <View style={styles.contenedorTexto}>
-                        <Text style={styles.estadoTitulo}>Tiempo estimado de espera</Text>
-                        <Text style={styles.estadoInfo}>{statusInfo.waitTime}</Text>
+                        <Text style={styles.estadoTitulo}>Estado de la orden</Text>
+                        <Text style={styles.estadoInfo}>{statusInfo.statusText}</Text>
                       </View>
                     </View>
-                  )}
-                  <View style={styles.contenedorOrden}>
-                  <Ionicons name={statusInfo.icon} size={24} color="white" />
-                    <View style={styles.contenedorTexto}>
-                      <Text style={styles.estadoTitulo}>Estado de la orden</Text>
-                      <Text style={styles.estadoInfo}>{statusInfo.statusText}</Text>
+                    <View style={styles.contenedorOrden}>
+                      <Feather name="dollar-sign" size={24} color="white" />
+                      <View style={styles.contenedorTexto}>
+                        <Text style={styles.estadoTitulo}>Total</Text>
+                        <Text style={styles.estadoInfo}>${orden.total_monto}</Text>
+                      </View>
                     </View>
                   </View>
                   <View style={styles.contenedorOrden}>
-                  <Feather name="dollar-sign" size={24} color="white" />
-                    <View style={styles.contenedorTexto}>
-                      <Text style={styles.estadoTitulo}>Total</Text>
-                      <Text style={styles.estadoInfo}>$290</Text>
-                    </View>
+                    <ProgressBar 
+                      startTime={fechaCreacion}
+                      duration={tiempoTotalSegundos}
+                      currentTime={currentTime}
+                      isOrdenEntregada={orden.status === 'entregada' || orden.status === 'pagada'}
+                    />
                   </View>
-                  </View>
-                   <View style={styles.contenedorOrden}>
-                     <ProgressBar 
-                       startTime={orderStartTime}
-                       duration={orderDuration}
-                       currentTime={currentTime}
-                     />
-                   </View>
-                </>
+                </View>
               );
-            })()}
-            </View>
-            {(() => {
-              const statusInfo = getOrderStatusInfo();
-              const { isCompleted } = getOrderTimeInfo();
-              
-              if (!isCompleted) {
-                // Botonera durante preparación
-                return (
-                  <View style={styles.botoneraProgreso}>
-                    <TouchableOpacity style={styles.boton3} onPress={abrirMenu}>
-                      <MaterialCommunityIcons style={styles.icono2} name="book-open" size={20} color="rgba(255, 255, 255, 0.56)" />
-                      <Text style={styles.textoBtn2}>Menú</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      style={[
-                        styles.boton2, 
-                        isCooldownActive && styles.botonDeshabilitado
-                      ]} 
-                      onPress={handleLlamarMesero}
-                      disabled={isCooldownActive}
-                    >
-                      <MaterialCommunityIcons 
-                        style={styles.icono2} 
-                        name={"human-greeting-variant"} 
-                        size={20} 
-                        color={isCooldownActive ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.56)"} 
-                      />
-                      <Text style={[
-                        styles.textoBtn2,
-                        isCooldownActive && styles.textoDeshabilitado
-                      ]}>
-                        {isCooldownActive ? `Esperar ${formatTime(cooldownTime)}` : 'Llamar mesero'}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              } else {
-                // Botonera cuando está entregada
-                return (
-                  <View style={styles.botoneraFinal}>
-                    <View style={styles.menuYmesero}>
-                      <TouchableOpacity style={styles.boton5} onPress={abrirMenu}>
-                        <MaterialCommunityIcons name="book-open" size={20} color="white" />
-                      </TouchableOpacity>
-                      <TouchableOpacity 
-                        style={[
-                          styles.boton4, 
-                          isCooldownActive && styles.botonDeshabilitado
-                        ]} 
-                        onPress={handleLlamarMesero}
-                        disabled={isCooldownActive}
-                      >
-                        <MaterialCommunityIcons 
-                          name={"human-greeting-variant"} 
-                          size={20} 
-                          color={isCooldownActive ? "rgba(255, 255, 255, 0.56)" : "white"} 
-                        />
-                      </TouchableOpacity>
-                    </View>
-                    <TouchableOpacity style={styles.botonCuenta} onPress={handlePedirCuenta}>
-                      <Ionicons name="receipt" size={24} color="black" />
-                      <Text style={styles.textoBtnCuenta}>Pedir la cuenta</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              }
-            })()}
+            })}
+          </ScrollView>
           </View>
-        </View>
+
+          {/* Botonera única en la parte inferior */}
+          {ordenesActivas.some(o => o.status === 'entregada') ? (
+            // Botonera cuando hay al menos una orden entregada
+            <View style={styles.botoneraFinal}>
+              <View style={styles.menuYmesero}>
+                <TouchableOpacity style={styles.boton5} onPress={abrirMenu}>
+                  <MaterialCommunityIcons name="book-open" size={20} color="white" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[
+                    styles.boton4, 
+                    isCooldownActive && styles.botonDeshabilitado
+                  ]} 
+                  onPress={handleLlamarMesero}
+                  disabled={isCooldownActive}
+                >
+                  <MaterialCommunityIcons 
+                    name={"human-greeting-variant"} 
+                    size={20} 
+                    color={isCooldownActive ? "rgba(255, 255, 255, 0.56)" : "white"} 
+                  />
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity style={styles.botonCuenta} onPress={handlePedirCuenta}>
+                <Ionicons name="receipt" size={24} color="black" />
+                <Text style={styles.textoBtnCuenta}>Pedir la cuenta</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            // Botonera cuando todas están en preparación
+            <View style={styles.botoneraProgreso}>
+              <TouchableOpacity style={styles.boton3} onPress={abrirMenu}>
+                <MaterialCommunityIcons style={styles.icono2} name="book-open" size={20} color="rgba(255, 255, 255, 0.56)" />
+                <Text style={styles.textoBtn2}>Menú</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[
+                  styles.boton2, 
+                  isCooldownActive && styles.botonDeshabilitado
+                ]} 
+                onPress={handleLlamarMesero}
+                disabled={isCooldownActive}
+              >
+                <MaterialCommunityIcons 
+                  style={styles.icono2} 
+                  name={"human-greeting-variant"} 
+                  size={20} 
+                  color={isCooldownActive ? "rgba(255, 255, 255, 0.3)" : "rgba(255, 255, 255, 0.56)"} 
+                />
+                <Text style={[
+                  styles.textoBtn2,
+                  isCooldownActive && styles.textoDeshabilitado
+                ]}>
+                  {isCooldownActive ? `Esperar ${formatTime(cooldownTime)}` : 'Llamar mesero'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
+        </>
       )}
       <StatusBar style="light" />
     </View>
@@ -447,15 +553,23 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   botoneraProgreso: {
+    position: 'absolute',
+    bottom: 5,
+    left: 20,
+    right: 20,
     display: 'flex',
     flexDirection: 'row',
-    width: '100%',
+    width: 'auto',
     backgroundColor: Colors.tab,
     borderRadius: 99,
     overflow: 'hidden'
   },
   botoneraFinal: {
-    width: '100%',
+    position: 'absolute',
+    bottom: 5,
+    left: 20,
+    right: 20,
+    width: 'auto',
     display: 'flex',
     flexDirection: 'row',
     gap: 10
@@ -516,7 +630,7 @@ const styles = StyleSheet.create({
     display: 'flex',
     flexDirection: 'row',
     flex: 1,
-    padding: 15,
+    padding: 10,
     borderRadius: 99,
     backgroundColor: 'white',
     alignItems: 'center'
@@ -560,6 +674,9 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     paddingHorizontal: 20,
   },
+  scrollContent: {
+    backgroundColor: 'transparent',
+  },
   tituloConOrden: {
     fontFamily: 'Michroma-Regular',
     fontWeight: '900',
@@ -583,17 +700,31 @@ const styles = StyleSheet.create({
     padding: 20,
     marginBottom: 15,
   },
+  ordenHeader: {
+    display: 'flex',
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 8,
+  },
   ordenTitulo: {
     fontFamily: 'Onest-Bold',
     fontSize: 18,
     color: Colors.textoPrincipal,
-    marginBottom: 8,
   },
   ordenSubTitulo: {
     fontFamily: 'Onest-Regular',
     fontSize: 16,
     color: Colors.textoSecundario,
     marginBottom: 8,
+    paddingHorizontal: 5
+  },
+   ordenSubTitulo2: {
+    fontFamily: 'Onest-Regular',
+    fontSize: 16,
+    color: Colors.textoSecundario,
+    marginBottom: 0,
     paddingHorizontal: 5
   },
   contenedorInfo: {
@@ -674,6 +805,11 @@ const styles = StyleSheet.create({
     color: '#666',
     fontSize: 10,
     fontFamily: 'Onest-Regular',
+  },
+  contenedorScroll: {
+    display: 'flex',
+    flex: 1,
+    maxHeight: '89%'
   },
 });
 
