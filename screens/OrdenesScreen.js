@@ -143,7 +143,33 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
 
   const handleLlamarMesero = () => {
     if (!isCooldownActive) {
-      onShowMeseroModalChange(true, startCooldown);
+      // Mostrar el modal de confirmación primero
+      onShowMeseroModalChange(true, async () => {
+        try {
+          const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+          const token = AuthService.getToken();
+          
+          const response = await fetch(`${apiUrl}/llamadas`, {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          const data = await response.json();
+          
+          if (data.success) {
+            // Iniciar cooldown después de enviar la llamada
+            startCooldown();
+          } else {
+            Alert.alert('Error', data.error || data.mensaje || 'No se pudo enviar la llamada');
+          }
+        } catch (error) {
+          console.error('Error al llamar al mesero:', error);
+          Alert.alert('Error', 'No se pudo conectar con el servidor');
+        }
+      });
     }
   };
 
