@@ -1,10 +1,8 @@
 import { View, Text, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native'
-import Feather from '@expo/vector-icons/Feather';
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { BlurView } from 'expo-blur';
 import { Colors } from '../../constants/Colors';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import MusicaSocketService from '../../services/MusicaSocketService';
@@ -15,6 +13,7 @@ export default function ColaScreen() {
   const [queueSongs, setQueueSongs] = useState([]);
   const [establecimientoId, setEstablecimientoId] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [userName, setUserName] = useState('');
   const [loading, setLoading] = useState(true);
   const unsubscribeQueueUpdate = useRef(null);
   const [fontsLoaded, fontError] = useFonts({
@@ -22,6 +21,15 @@ export default function ColaScreen() {
     'Onest-Regular': require('../../assets/fonts/Onest-Regular.ttf'),
     'Onest-Bold': require('../../assets/fonts/Onest-Bold.ttf'),
   });
+
+  const getInitials = (name) => {
+    if (!name) return '?';
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) {
+      return words[0][0].toUpperCase();
+    }
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  };
 
   // Función para cargar la cola
   const loadQueue = useCallback(async (estabId, currentUserId) => {
@@ -61,6 +69,7 @@ export default function ColaScreen() {
           if (user && user.id) {
             currentUserId = user.id;
             setUserId(user.id);
+            setUserName(user.nombre || '');
           }
           
           const res = await AuthService.verifyToken();
@@ -149,7 +158,9 @@ export default function ColaScreen() {
                   </View>
                   {song.anadido_por === userId && (
                     <View style={styles.userBadge}>
-                      <Feather name="user" size={16} color="white" style={styles.iconoUsuario} />
+                      <View style={styles.initialsCircle}>
+                        <Text style={styles.initialsText}>{getInitials(userName)}</Text>
+                      </View>
                     </View>
                   )}
                 </BlurView>
@@ -218,7 +229,7 @@ const styles = StyleSheet.create({
   infoCancion: {
     flex: 1,
     justifyContent: 'center',
-    marginRight: 10
+    marginRight: 0,
   },
   posicionContainer: {
     paddingHorizontal: 10
@@ -238,9 +249,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Onest-Regular',
   },
-   iconoUsuario : {
-    opacity: .5
-  },
   songResultButtonWrapper: {
     borderRadius: 10,
   },
@@ -252,6 +260,22 @@ const styles = StyleSheet.create({
     marginTop: 10,
   },
   userBadge: {
-    paddingHorizontal: 10,
+    paddingRight: 10,
+  },
+  initialsCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 99,
+    backgroundColor: Colors.secundario,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 0,
+    // borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  initialsText: {
+    color: 'black',
+    fontSize: 12,
+    fontFamily: 'Onest-Bold',
+    textTransform: 'uppercase',
   },
 });

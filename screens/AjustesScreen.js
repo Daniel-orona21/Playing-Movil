@@ -185,14 +185,6 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
              value={mostrarNombre1}
            />
          </View>
-         <View style={styles.separador} />
-         <View style={styles.filaPreferencia}>
-           <Text style={styles.textoPreferencia}>Mostrar mi nombre</Text>
-           <Switch
-             onValueChange={setMostrarNombre2}
-             value={mostrarNombre2}
-           />
-         </View>
        </View>
 
        <Text style={styles.titulo2}>Salir</Text>
@@ -254,7 +246,8 @@ const styles = StyleSheet.create({
    separador: {
      height: 1,
      backgroundColor: '#333',
-     marginLeft: 20,
+     marginLeft: 15,
+     marginRight: 15,
    },
   containerPreferencias: {
     flex: 1,
