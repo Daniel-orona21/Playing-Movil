@@ -1,13 +1,13 @@
 import Feather from '@expo/vector-icons/Feather';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, TextInput } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Switch, TextInput, ActivityIndicator, Alert } from 'react-native';
 import AntDesign from '@expo/vector-icons/AntDesign';
 import EvilIcons from '@expo/vector-icons/EvilIcons';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/Colors';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import * as Haptics from 'expo-haptics';
 import AuthService from '../services/AuthService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,11 +20,33 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
   });
 
   const [isEditing, setIsEditing] = useState(false);
-  const [nombre, setNombre] = useState('Daniel');
-  const [nombreTemporal, setNombreTemporal] = useState('Daniel');
+  const [nombre, setNombre] = useState('');
+  const [nombreTemporal, setNombreTemporal] = useState('');
   const [mostrarNombre1, setMostrarNombre1] = useState(true);
   const [mostrarNombre2, setMostrarNombre2] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   
+  // Cargar perfil del usuario al montar el componente
+  useEffect(() => {
+    loadUserProfile();
+  }, []);
+
+  const loadUserProfile = async () => {
+    try {
+      setLoading(true);
+      const user = await AuthService.getProfile();
+      if (user && user.nombre) {
+        setNombre(user.nombre);
+        setNombreTemporal(user.nombre);
+      }
+    } catch (error) {
+      console.error('Error al cargar perfil:', error);
+      Alert.alert('Error', 'No se pudo cargar tu perfil');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleEditar = () => {
     setNombreTemporal(nombre);
@@ -36,9 +58,41 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
     setIsEditing(false);
   };
 
-  const handleGuardar = () => {
-    setNombre(nombreTemporal);
-    setIsEditing(false);
+  const handleGuardar = async () => {
+    if (!nombreTemporal.trim()) {
+      Alert.alert('Error', 'El nombre no puede estar vacío');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      const token = await AsyncStorage.getItem('token');
+      const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/$/, '') || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ nombre: nombreTemporal.trim() })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        setNombre(nombreTemporal.trim());
+        setIsEditing(false);
+        Alert.alert('Éxito', 'Tu nombre ha sido actualizado');
+      } else {
+        throw new Error(data.error || 'Error al actualizar el nombre');
+      }
+    } catch (error) {
+      console.error('Error al guardar perfil:', error);
+      Alert.alert('Error', 'No se pudo actualizar tu nombre. Inténtalo de nuevo.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Modal handlers
@@ -87,10 +141,12 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
           </View>
         )}
           <View style={styles.contenedorNombre}>
-            {!isEditing ? (
+            {loading ? (
+              <ActivityIndicator size="small" color={Colors.secundario} />
+            ) : !isEditing ? (
               <>
-                <Text style={styles.nombre} numberOfLines={1} ellipsizeMode="tail">{nombre}</Text>
-                <TouchableOpacity style={styles.botonEditar} onPress={handleEditar}>
+                <Text style={styles.nombre} numberOfLines={1} ellipsizeMode="tail">{nombre || 'Sin nombre'}</Text>
+                <TouchableOpacity style={styles.botonEditar} onPress={handleEditar} disabled={saving}>
                   <Feather name="edit" size={18} color="gray" />
                 </TouchableOpacity>
               </>
@@ -103,13 +159,18 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
                     placeholder="Cambiar nombre"
                     value={nombreTemporal}
                     onChangeText={setNombreTemporal}
+                    editable={!saving}
                   />
-                  <TouchableOpacity style={styles.botonCancelar} onPress={handleCancelar}>
+                  <TouchableOpacity style={styles.botonCancelar} onPress={handleCancelar} disabled={saving}>
                     <AntDesign name="close" size={22} color="white" />
                   </TouchableOpacity>
                 </View>
-                <TouchableOpacity style={styles.botonEditar} onPress={handleGuardar}>
-                  <Feather name="check" size={26} color={Colors.secundario} />
+                <TouchableOpacity style={styles.botonEditar} onPress={handleGuardar} disabled={saving}>
+                  {saving ? (
+                    <ActivityIndicator size="small" color={Colors.secundario} />
+                  ) : (
+                    <Feather name="check" size={26} color={Colors.secundario} />
+                  )}
                 </TouchableOpacity>
               </>
             )}

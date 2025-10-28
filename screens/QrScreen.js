@@ -85,7 +85,7 @@ const QrScreen = ({ navigation }) => {
           } catch (e) {
             // Error al verificar token (probablemente inválido o expirado)
             if (!cancelled) {
-              console.log('Error verificando token:', e.message);
+              // console.log('Error verificando token:', e.message);
               await AuthService.signOut();
               navigation.reset({ index: 0, routes: [{ name: 'Home' }] });
             }

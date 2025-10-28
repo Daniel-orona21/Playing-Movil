@@ -202,7 +202,54 @@ class AuthService {
         throw new Error('Respuesta del servidor no es JSON');
       }
     } catch (error) {
-      console.error('Error verificando token:', error);
+      // console.error('Error verificando token:', error);
+      throw error;
+    }
+  }
+
+  async getProfile() {
+    try {
+      // Cargar token si no está en memoria
+      if (!this.token) {
+        await this.loadStoredAuth();
+      }
+
+      if (!this.token) {
+        throw new Error('No hay token disponible');
+      }
+
+      const url = `${API_URL}/profile`;
+      
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`,
+        },
+      });
+      
+      const contentType = response.headers.get('content-type');
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        
+        if (data.success && data.user) {
+          // Actualizar datos locales
+          this.currentUser = data.user;
+          await AsyncStorage.setItem('user', JSON.stringify(data.user));
+          return data.user;
+        } else {
+          throw new Error(data.error || 'Error al obtener perfil');
+        }
+      } else {
+        const text = await response.text();
+        console.error('Error: Response no es JSON:', text.substring(0, 200));
+        throw new Error('Respuesta del servidor no es JSON');
+      }
+    } catch (error) {
+      console.error('Error en getProfile:', error);
       throw error;
     }
   }
