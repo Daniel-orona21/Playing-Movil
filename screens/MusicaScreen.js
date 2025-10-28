@@ -541,11 +541,11 @@ const styles = StyleSheet.create({
   },
   portada: {
     display: 'flex',
-    width: '80%',
+    width: '100%',
     aspectRatio: 1/1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 45,
+    borderRadius: 35,
     overflow: 'hidden',
     backgroundColor: Colors.contenedor,
   },
