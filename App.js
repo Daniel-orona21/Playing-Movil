@@ -61,6 +61,7 @@ export default function App() {
     'Onest-Bold': require('./assets/fonts/Onest-Bold.ttf'),
   });
 
+  const [hasMesa, setHasMesa] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -71,9 +72,42 @@ export default function App() {
   const checkAuthStatus = async () => {
     try {
       const hasAuth = await AuthService.loadStoredAuth();
-      setIsAuthenticated(hasAuth);
+      
+      if (hasAuth) {
+        try {
+          // Verificar con el backend si el token y la mesa siguen siendo válidos
+          const res = await AuthService.verifyToken();
+          if (res && res.success && res.user && res.user.mesa_id_activa) {
+            // Usuario autenticado CON mesa
+            setIsAuthenticated(true);
+            setHasMesa(true);
+            // Actualizar datos locales con mesa activa
+            await AuthService.storeAuthData(AuthService.getToken(), res.user);
+          } else {
+            // Usuario autenticado pero SIN mesa
+            setIsAuthenticated(true);
+            setHasMesa(false);
+            // Actualizar datos locales sin mesa
+            if (res && res.user) {
+              const user = res.user;
+              user.mesa_id_activa = null;
+              await AuthService.storeAuthData(AuthService.getToken(), user);
+            }
+          }
+        } catch (verifyError) {
+          // Token inválido o error al verificar
+          setIsAuthenticated(false);
+          setHasMesa(false);
+        }
+      } else {
+        // No autenticado, no tiene mesa
+        setIsAuthenticated(false);
+        setHasMesa(false);
+      }
     } catch (error) {
       console.error('Error verificando autenticación:', error);
+      setIsAuthenticated(false);
+      setHasMesa(false);
     } finally {
       setIsLoading(false);
     }
@@ -93,10 +127,17 @@ export default function App() {
     return null; // Mostrar splash screen mientras carga
   }
 
+  const getInitialRoute = () => {
+    if (hasMesa) return "Layout";
+    // Si no tiene mesa pero está autenticado, ir a Qr
+    if (isAuthenticated) return "Qr";
+    // Si no está autenticado, ir a Home
+    return "Home";
+  };
+
   return (
     <NavigationContainer onLayout={onLayoutRootView}>
-      <Stack.Navigator initialRouteName={isAuthenticated ? "Layout" : "Home"}>
-      {/* <Stack.Navigator initialRouteName={"Home"}> */}
+      <Stack.Navigator initialRouteName={getInitialRoute()}>
         <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
         <Stack.Screen name="Qr" component={QrScreen} options={{ headerShown: false }} />
         <Stack.Screen 
