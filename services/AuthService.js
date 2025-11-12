@@ -198,7 +198,7 @@ class AuthService {
         return data;
       } else {
         const text = await response.text();
-        console.error('Error: Verify response no es JSON:', text.substring(0, 200));
+        // console.error('Error: Verify response no es JSON:', text.substring(0, 200));
         throw new Error('Respuesta del servidor no es JSON');
       }
     } catch (error) {
