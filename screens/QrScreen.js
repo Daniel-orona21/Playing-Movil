@@ -214,8 +214,25 @@ const QrScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
+      {/* Camera state container - Renderizar PRIMERO para Android */}
+      {permission?.granted && shouldRenderCamera && isCameraActive && (
+        <CameraView
+          style={StyleSheet.absoluteFill}
+          facing={facing}
+          isActive={isCameraActive}
+          onCameraReady={() => {
+            console.log('Camera is ready');
+            setCameraReady(true);
+          }}
+          barcodeScannerSettings={{
+            barcodeTypes: ['qr', 'pdf417'],
+          }}
+          onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+        />
+      )}
+      
       {/* Normal state container */}
-      <Animated.View style={[styles.container, { opacity: normalOpacity }]}>
+      <Animated.View style={[styles.container, { opacity: normalOpacity, zIndex: isCameraActive ? 0 : 1 }]}>
         <Text style={styles.titulo}>¡BIENVENIDO!</Text>
         <View style={styles.contenedorLogin}>
           <Text style={styles.subtitulo}>Escanea el QR de tu mesa</Text>
@@ -243,23 +260,23 @@ const QrScreen = ({ navigation }) => {
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Camera state container */}
-      <Animated.View style={[styles.container, { opacity: cameraOpacity, position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
-        {permission?.granted && shouldRenderCamera && (
-          <CameraView
-            style={StyleSheet.absoluteFill}
-            facing={facing}
-            isActive={isCameraActive}
-            onCameraReady={() => {
-              console.log('Camera is ready');
-              setCameraReady(true);
-            }}
-            barcodeScannerSettings={{
-              barcodeTypes: ['qr', 'pdf417'],
-            }}
-            onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
-          />
-        )}
+      {/* Camera overlay (UI cuando cámara está activa) */}
+      <Animated.View 
+        style={[
+          styles.container, 
+          { 
+            opacity: cameraOpacity, 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            right: 0, 
+            bottom: 0,
+            zIndex: isCameraActive ? 2 : 0,
+            backgroundColor: 'transparent'
+          }
+        ]}
+        pointerEvents={isCameraActive ? 'auto' : 'none'}
+      >
         <Text style={styles.titulo}>¡BIENVENIDO!</Text>
         <View style={styles.contenedorLogin}>
           <Text style={styles.subtitulo}>Escanea el QR de tu mesa</Text>
