@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AuthSession from 'expo-auth-session';
 import * as WebBrowser from 'expo-web-browser';
+import { Platform, Linking } from 'react-native';
 
 // Read API base URL from Expo env or fallback to LAN IP if provided
 // Asegurarse de que siempre termine en /api/auth
@@ -28,42 +30,114 @@ class AuthService {
 
   async signInWithGoogle() {
     try {
-      // URL de autorización de Google
-      const redirectUri = (process.env.EXPO_PUBLIC_SERVER_PUBLIC_URL || 'http://localhost:3000') + '/auth/callback';
+      // iOS: usar el método original con deep links (funciona perfecto)
+      if (Platform.OS === 'ios') {
+        const backendRedirectUri = (process.env.EXPO_PUBLIC_SERVER_PUBLIC_URL || 'http://localhost:3000') + '/auth/callback';
+        const appRedirectUri = AuthSession.makeRedirectUri({
+          scheme: 'playingmovil',
+          path: 'auth/callback',
+        });
+        
+        // URL de autorización de Google
+        const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
+          `client_id=${this.getGoogleClientId()}&` +
+          `redirect_uri=${encodeURIComponent(backendRedirectUri)}&` +
+          `response_type=code&` +
+          `scope=openid%20profile%20email&` +
+          `access_type=offline&` +
+          `prompt=select_account`;
+
+        // Abrir el navegador para autenticación
+        const result = await WebBrowser.openAuthSessionAsync(
+          authUrl,
+          appRedirectUri
+        );
+
+        if (result.type === 'success' && result.url) {
+          // Extraer el código de autorización de la URL
+          const url = new URL(result.url);
+          const code = url.searchParams.get('code');
+          
+          if (code) {
+            // Enviar código al backend para autenticación
+            const response = await this.authenticateWithBackend(code);
+            
+            if (response.success) {
+              await this.storeAuthData(response.token, response.user);
+              return { success: true, user: response.user };
+            } else {
+              throw new Error(response.error || 'Error en autenticación');
+            }
+          } else {
+            throw new Error('No se recibió el código de autorización');
+          }
+        } else {
+          throw new Error('Error en la autenticación de Google');
+        }
+      }
+      
+      // Android: usar método de polling (evita problemas con deep links)
+      const SERVER_BASE = process.env.EXPO_PUBLIC_SERVER_PUBLIC_URL || 'http://localhost:3000';
+      
+      // 1. Obtener un sessionId del backend
+      const startResponse = await fetch(`${SERVER_BASE}/auth/start`);
+      const startData = await startResponse.json();
+      
+      if (!startData.success || !startData.sessionId) {
+        throw new Error('Error al iniciar sesión');
+      }
+      
+      const sessionId = startData.sessionId;
+      const backendRedirectUri = `${SERVER_BASE}/auth/callback`;
+      
+      // 2. Abrir navegador con Google OAuth usando sessionId como state
       const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?` +
         `client_id=${this.getGoogleClientId()}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
+        `redirect_uri=${encodeURIComponent(backendRedirectUri)}&` +
         `response_type=code&` +
         `scope=openid%20profile%20email&` +
         `access_type=offline&` +
-        `prompt=select_account`;
+        `prompt=select_account&` +
+        `state=${encodeURIComponent(sessionId)}`;
 
-      // Abrir el navegador para autenticación
-      const result = await WebBrowser.openAuthSessionAsync(
-        authUrl,
-        redirectUri
-      );
+      // Abrir navegador (no esperamos el resultado aquí)
+      await WebBrowser.openBrowserAsync(authUrl, {
+        showInRecents: true,
+      });
 
-      if (result.type === 'success' && result.url) {
-        // Extraer el código de autorización de la URL
-        const url = new URL(result.url);
-        const code = url.searchParams.get('code');
+      // 3. Hacer polling al backend para obtener el código
+      let code = null;
+      const maxAttempts = 60; // 60 intentos = 30 segundos máximo
+      const pollInterval = 500; // 500ms entre intentos
+      
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
         
-        if (code) {
-          // Enviar código al backend para autenticación
-          const response = await this.authenticateWithBackend(code);
+        try {
+          const checkResponse = await fetch(`${SERVER_BASE}/auth/check/${sessionId}`);
+          const checkData = await checkResponse.json();
           
-          if (response.success) {
-            await this.storeAuthData(response.token, response.user);
-            return { success: true, user: response.user };
-          } else {
-            throw new Error(response.error || 'Error en autenticación');
+          if (checkData.success && checkData.code) {
+            code = checkData.code;
+            break;
           }
-        } else {
-          throw new Error('No se recibió el código de autorización');
+        } catch (pollError) {
+          console.error('Error en polling:', pollError);
         }
+      }
+      
+      if (!code) {
+        throw new Error('Tiempo de espera agotado. Por favor, intenta de nuevo.');
+      }
+      
+      // 4. Autenticar con el código obtenido
+      const response = await this.authenticateWithBackend(code);
+      
+      if (response.success) {
+        await this.storeAuthData(response.token, response.user);
+        return { success: true, user: response.user };
       } else {
-        throw new Error('Error en la autenticación de Google');
+        throw new Error(response.error || 'Error en autenticación');
       }
     } catch (error) {
       console.error('Error en signInWithGoogle:', error);
@@ -103,6 +177,7 @@ class AuthService {
       throw error;
     }
   }
+
 
   async storeAuthData(token, user) {
     try {
