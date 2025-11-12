@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
       },
       titulo: {
         fontFamily: 'Michroma-Regular',
-        fontWeight: '900',
+        // fontWeight: '900',
         position: 'absolute',
         fontSize: 32,
         color: 'white',
