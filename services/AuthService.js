@@ -26,6 +26,10 @@ class AuthService {
   constructor() {
     this.currentUser = null;
     this.token = null;
+    // Cache para verifyToken
+    this.lastVerifyTimestamp = null;
+    this.lastVerifyResult = null;
+    this.VERIFY_CACHE_DURATION = 30000; // 30 segundos de caché
   }
 
   async signInWithGoogle() {
@@ -235,8 +239,14 @@ class AuthService {
       await AsyncStorage.removeItem('user');
       this.token = null;
       this.currentUser = null;
+      // Limpiar caché de verifyToken
+      this.lastVerifyTimestamp = null;
+      this.lastVerifyResult = null;
     } catch (error) {
       console.error('Error en signOut:', error);
+      // Limpiar caché de verifyToken
+      this.lastVerifyTimestamp = null;
+      this.lastVerifyResult = null;
       throw error;
     }
   }
@@ -253,9 +263,19 @@ class AuthService {
     return this.token;
   }
 
-  async verifyToken() {
+  async verifyToken(forceRefresh = false) {
     if (!this.token) {
       throw new Error('No hay token disponible');
+    }
+
+    // Usar caché si no se fuerza refresh y el caché es válido
+    const now = Date.now();
+    if (!forceRefresh && this.lastVerifyResult && this.lastVerifyTimestamp) {
+      const cacheAge = now - this.lastVerifyTimestamp;
+      if (cacheAge < this.VERIFY_CACHE_DURATION) {
+        // console.log(`✅ Usando caché de verifyToken (${Math.floor(cacheAge / 1000)}s old)`);
+        return this.lastVerifyResult;
+      }
     }
 
     try {
@@ -270,14 +290,24 @@ class AuthService {
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('application/json')) {
         const data = await response.json();
+        this.currentUser = data.user;
+        
+        // Actualizar caché
+        this.lastVerifyResult = data;
+        this.lastVerifyTimestamp = now;
+        
         return data;
       } else {
         const text = await response.text();
-        // console.error('Error: Verify response no es JSON:', text.substring(0, 200));
+        // Limpiar caché en caso de error
+        this.lastVerifyTimestamp = null;
+        this.lastVerifyResult = null;
         throw new Error('Respuesta del servidor no es JSON');
       }
     } catch (error) {
-      // console.error('Error verificando token:', error);
+      // Limpiar caché en caso de error
+      this.lastVerifyTimestamp = null;
+      this.lastVerifyResult = null;
       throw error;
     }
   }
