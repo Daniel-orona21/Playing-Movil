@@ -221,13 +221,25 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
           });
           
           // Listener para órdenes actualizadas
-          OrdenesSocketService.on('orden_updated', () => {
-            loadOrdenesUsuario();
+          OrdenesSocketService.on('orden_updated', (ordenData) => {
+            // Verificar si la orden actualizada pertenece a este usuario
+            if (ordenData && ordenData.usuario_id === userId) {
+              loadOrdenesUsuario();
+            }
           });
           
           // Listener para órdenes eliminadas
-          OrdenesSocketService.on('ordenes_deleted', () => {
-            loadOrdenesUsuario();
+          OrdenesSocketService.on('ordenes_deleted', (data) => {
+            // Verificar si alguna de las órdenes eliminadas pertenece a este usuario
+            if (data && data.usuarios) {
+              // data.usuarios es un mapa de id_orden -> usuario_id
+              const perteneceAlUsuario = Object.values(data.usuarios).some(
+                ordenUsuarioId => ordenUsuarioId === userId
+              );
+              if (perteneceAlUsuario) {
+                loadOrdenesUsuario();
+              }
+            }
           });
         }
       } catch (error) {
