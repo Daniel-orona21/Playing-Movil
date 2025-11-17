@@ -22,10 +22,10 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
   const [isEditing, setIsEditing] = useState(false);
   const [nombre, setNombre] = useState('');
   const [nombreTemporal, setNombreTemporal] = useState('');
-  const [mostrarNombre1, setMostrarNombre1] = useState(true);
-  const [mostrarNombre2, setMostrarNombre2] = useState(false);
+  const [mostrarNombre, setMostrarNombre] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
   
   // Cargar perfil del usuario al montar el componente
   useEffect(() => {
@@ -36,9 +36,13 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
     try {
       setLoading(true);
       const user = await AuthService.getProfile();
-      if (user && user.nombre) {
-        setNombre(user.nombre);
-        setNombreTemporal(user.nombre);
+      if (user) {
+        if (user.nombre) {
+          setNombre(user.nombre);
+          setNombreTemporal(user.nombre);
+        }
+        // Cargar preferencia de privacidad (por defecto true si no existe)
+        setMostrarNombre(user.mostrar_nombre !== undefined ? user.mostrar_nombre : true);
       }
     } catch (error) {
       console.error('Error al cargar perfil:', error);
@@ -83,6 +87,10 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
       if (response.ok && data.success) {
         setNombre(nombreTemporal.trim());
         setIsEditing(false);
+        // Actualizar estado local del usuario
+        if (data.user) {
+          await AuthService.storeAuthData(AuthService.getToken(), data.user);
+        }
         Alert.alert('Éxito', 'Tu nombre ha sido actualizado');
       } else {
         throw new Error(data.error || 'Error al actualizar el nombre');
@@ -92,6 +100,46 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
       Alert.alert('Error', 'No se pudo actualizar tu nombre. Inténtalo de nuevo.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleMostrarNombreChange = async (value) => {
+    // Actualizar estado local inmediatamente para mejor UX
+    setMostrarNombre(value);
+    
+    try {
+      setSavingPrivacy(true);
+      const token = await AsyncStorage.getItem('token');
+      const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/$/, '') || 'http://localhost:3000/api';
+      
+      const response = await fetch(`${API_URL}/auth/profile`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ mostrar_nombre: value })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Actualizar estado local del usuario
+        if (data.user) {
+          await AuthService.storeAuthData(AuthService.getToken(), data.user);
+        }
+      } else {
+        // Revertir cambio si falla
+        setMostrarNombre(!value);
+        throw new Error(data.error || 'Error al actualizar la preferencia');
+      }
+    } catch (error) {
+      console.error('Error al actualizar preferencia de privacidad:', error);
+      // Revertir cambio si falla
+      setMostrarNombre(!value);
+      Alert.alert('Error', 'No se pudo actualizar la preferencia. Inténtalo de nuevo.');
+    } finally {
+      setSavingPrivacy(false);
     }
   };
 
@@ -197,8 +245,9 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
          <View style={styles.filaPreferencia}>
            <Text style={styles.textoPreferencia}>Mostrar mi nombre</Text>
            <Switch
-             onValueChange={setMostrarNombre1}
-             value={mostrarNombre1}
+             onValueChange={handleMostrarNombreChange}
+             value={mostrarNombre}
+             disabled={savingPrivacy}
            />
          </View>
        </View>
