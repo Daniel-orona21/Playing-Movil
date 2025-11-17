@@ -58,9 +58,13 @@ const QrScreen = ({ navigation }) => {
             await AuthService.loadStoredAuth();
             if (AuthService.isAuthenticated()) {
               // Verificar que el token sea válido
-              const res = await AuthService.verifyToken();
+              // Usar forceRefresh para evitar problemas de caché después de ser expulsado
+              const res = await AuthService.verifyToken(true);
               if (!cancelled) {
                 if (res && res.success && res.user) {
+                  // Actualizar estado local con datos frescos del servidor
+                  await AuthService.storeAuthData(AuthService.getToken(), res.user);
+                  
                   // Token válido, verificar si tiene mesa asignada
                   if (res.user.mesa_id_activa) {
                     navigation.reset({ index: 0, routes: [{ name: 'Layout' }] });
@@ -182,7 +186,7 @@ const QrScreen = ({ navigation }) => {
           try { payload = JSON.parse(data); } catch {}
           if (!payload || !payload.e || !payload.m) {
             console.log('QR inválido');
-            navigation.navigate('Layout');
+            navigation.reset({ index: 0, routes: [{ name: 'Layout' }] });
             return;
           }
           const token = await AsyncStorage.getItem('token');
@@ -194,17 +198,62 @@ const QrScreen = ({ navigation }) => {
             headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) },
             body: JSON.stringify({ e: payload.e, m: payload.m })
           });
-          const ct = res.headers.get('content-type') || '';
-          const bodyText = await res.text();
-          if (ct.includes('application/json')) {
-            try { console.log('Vinculación QR:', JSON.parse(bodyText)); } catch { console.log('Vinculación QR (raw):', bodyText); }
+          
+          if (res.ok) {
+            const ct = res.headers.get('content-type') || '';
+            const bodyText = await res.text();
+            let linkData = null;
+            if (ct.includes('application/json')) {
+              try { 
+                linkData = JSON.parse(bodyText);
+                console.log('Vinculación QR:', linkData);
+              } catch { 
+                console.log('Vinculación QR (raw):', bodyText); 
+              }
+            } else {
+              console.log('Respuesta no JSON:', bodyText.slice(0, 200));
+            }
+            
+            // Forzar actualización del token para obtener datos actualizados con mesa_id_activa
+            try {
+              const verifyResult = await AuthService.verifyToken(true);
+              
+              // Actualizar el estado local del usuario con la mesa vinculada
+              // Preferir mesa_id de la respuesta de vinculación, pero si verifyToken ya la tiene, usarla
+              const updatedUser = verifyResult?.user || AuthService.getCurrentUser();
+              if (updatedUser) {
+                // Usar mesa_id de la respuesta de vinculación si está disponible, sino usar la de verifyToken
+                if (linkData && linkData.success && linkData.mesa_id) {
+                  updatedUser.mesa_id_activa = linkData.mesa_id;
+                }
+                // Guardar el usuario actualizado
+                await AuthService.storeAuthData(AuthService.getToken(), updatedUser);
+              }
+            } catch (verifyError) {
+              console.error('Error actualizando token después de vincular:', verifyError);
+              // Si verifyToken falla pero tenemos linkData, actualizar manualmente
+              if (linkData && linkData.success && linkData.mesa_id) {
+                try {
+                  const currentUser = AuthService.getCurrentUser();
+                  if (currentUser) {
+                    currentUser.mesa_id_activa = linkData.mesa_id;
+                    await AuthService.storeAuthData(AuthService.getToken(), currentUser);
+                  }
+                } catch (storeError) {
+                  console.error('Error guardando datos de usuario:', storeError);
+                }
+              }
+            }
           } else {
-            console.log('Respuesta no JSON:', bodyText.slice(0, 200));
+            const bodyText = await res.text();
+            console.log('Error en vinculación QR:', res.status, bodyText.slice(0, 200));
           }
         } catch (e) {
           console.log('Error vinculando QR', e);
         }
-        navigation.navigate('Layout');
+        
+        // Usar reset para evitar problemas de navegación y asegurar que Layout cargue con datos actualizados
+        navigation.reset({ index: 0, routes: [{ name: 'Layout' }] });
       }
     };
     

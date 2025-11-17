@@ -42,6 +42,7 @@ const LayoutScreen = ({ navigation }) => {
   const [toastMessage, setToastMessage] = React.useState('');
   const socketRef = React.useRef(null);
   const watchdogRef = React.useRef(null);
+  const watchdogTimeoutRef = React.useRef(null);
 
   const handleShowMusicaAddSongModalChange = (isVisible, songData) => {
     if (isVisible) {
@@ -256,10 +257,35 @@ const LayoutScreen = ({ navigation }) => {
         const joinRoom = () => { if (userId) socketRef.current.emit('join_user', userId); };
         socketRef.current.on('connect', joinRoom);
         socketRef.current.on('reconnect', joinRoom);
-        socketRef.current.on('user:kicked', () => {
-          // Redirigir a escaneo
+        socketRef.current.on('user:kicked', async () => {
+          // Actualizar estado local del usuario para reflejar que ya no tiene mesa
+          try {
+            // Limpiar caché de verifyToken
+            await AuthService.verifyToken(true);
+            
+            // Actualizar el estado local del usuario
+            const updatedUser = AuthService.getCurrentUser();
+            if (updatedUser) {
+              updatedUser.mesa_id_activa = null;
+              await AuthService.storeAuthData(AuthService.getToken(), updatedUser);
+            }
+          } catch (error) {
+            console.error('Error actualizando estado después de kick:', error);
+            // Si falla, forzar actualización manual
+            try {
+              const currentUser = AuthService.getCurrentUser();
+              if (currentUser) {
+                currentUser.mesa_id_activa = null;
+                await AuthService.storeAuthData(AuthService.getToken(), currentUser);
+              }
+            } catch (storeError) {
+              console.error('Error guardando estado actualizado:', storeError);
+            }
+          }
+          
+          // Redirigir a escaneo usando reset para evitar problemas de navegación
           setActiveTab('Ajustes');
-          navigation.navigate('Qr');
+          navigation.reset({ index: 0, routes: [{ name: 'Qr' }] });
         });
         socketRef.current.on('disconnect', async () => {
           // Fallback inmediato: verificar estado de mesa y redirigir si es necesario
@@ -274,23 +300,31 @@ const LayoutScreen = ({ navigation }) => {
           } catch {}
         });
         // Watchdog: verificación periódica como seguro ante sockets caídos
-        watchdogRef.current = setInterval(async () => {
-          try {
-            await AuthService.loadStoredAuth();
-            if (AuthService.isAuthenticated()) {
-              const res = await AuthService.verifyToken();
-              if (!res?.user?.mesa_id_activa) {
-                navigation.navigate('Qr');
+        // Esperar un poco antes de iniciar el watchdog para dar tiempo a que se carguen los datos iniciales
+        watchdogTimeoutRef.current = setTimeout(() => {
+          watchdogRef.current = setInterval(async () => {
+            try {
+              await AuthService.loadStoredAuth();
+              if (AuthService.isAuthenticated()) {
+                // Usar forceRefresh cada vez para evitar problemas de caché
+                const res = await AuthService.verifyToken(true);
+                if (!res?.user?.mesa_id_activa) {
+                  navigation.navigate('Qr');
+                }
               }
-            }
-          } catch {}
-        }, 20000);
+            } catch {}
+          }, 20000);
+        }, 5000); // Esperar 5 segundos antes de iniciar el watchdog
       } catch {}
     })();
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();
         socketRef.current = null;
+      }
+      if (watchdogTimeoutRef.current) {
+        clearTimeout(watchdogTimeoutRef.current);
+        watchdogTimeoutRef.current = null;
       }
       if (watchdogRef.current) {
         clearInterval(watchdogRef.current);

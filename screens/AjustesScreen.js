@@ -101,12 +101,28 @@ const AjustesScreen = ({ navigation, onShowExitRestaurantModalChange, onShowLogo
       try {
         const token = await AsyncStorage.getItem('token');
         const API_URL = (process.env.EXPO_PUBLIC_API_URL || '').replace(/\/auth$/, '').replace(/\/$/, '') || 'http://localhost:3000/api';
-        await fetch(`${API_URL}/establecimientos/leave`, {
+        const response = await fetch(`${API_URL}/establecimientos/leave`, {
           method: 'POST',
           headers: { ...(token ? { 'Authorization': `Bearer ${token}` } : {}) }
         });
-      } catch {}
-      navigation.navigate('Qr');
+        
+        if (response.ok) {
+          // Forzar actualización del token para obtener datos actualizados
+          await AuthService.verifyToken(true);
+          
+          // Actualizar el estado local del usuario para reflejar que ya no tiene mesa
+          const updatedUser = AuthService.getCurrentUser();
+          if (updatedUser) {
+            updatedUser.mesa_id_activa = null;
+            await AuthService.storeAuthData(AuthService.getToken(), updatedUser);
+          }
+        }
+      } catch (error) {
+        console.error('Error al salir del restaurante:', error);
+      }
+      
+      // Usar reset en lugar de navigate para evitar que QrScreen verifique con datos en caché
+      navigation.reset({ index: 0, routes: [{ name: 'Qr' }] });
     });
   };
 
