@@ -87,7 +87,7 @@ const ProgressBar = ({ startTime, duration, currentTime, isOrdenEntregada }) => 
   );
 };
 
-const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => {
+const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange, urlMenu }) => {
   const [fontsLoaded, fontError] = useFonts({
     'Michroma-Regular': require('../assets/fonts/Michroma-Regular.ttf'),
     'Onest-Regular': require('../assets/fonts/Onest-Regular.ttf'),
@@ -110,7 +110,13 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange }) => 
   }, [fontsLoaded, fontError]);
 
   const abrirMenu = async () => {
-    const url = 'https://vips.com.mx/menu/';
+    // Usar url_menu del establecimiento si está disponible, sino usar fallback
+    const url = urlMenu || 'https://youtube.com/';
+    
+    if (!url || url.trim() === '') {
+      Alert.alert('Error', 'No hay menú disponible para este establecimiento');
+      return;
+    }
     
     try {
       await WebBrowser.openBrowserAsync(url, {

@@ -40,6 +40,7 @@ const LayoutScreen = ({ navigation }) => {
   const logoutOverlayFadeAnim = React.useRef(new Animated.Value(0)).current;
   const [showToast, setShowToast] = React.useState(false);
   const [toastMessage, setToastMessage] = React.useState('');
+  const [urlMenu, setUrlMenu] = React.useState(null);
   const socketRef = React.useRef(null);
   const watchdogRef = React.useRef(null);
   const watchdogTimeoutRef = React.useRef(null);
@@ -247,6 +248,32 @@ const LayoutScreen = ({ navigation }) => {
   React.useEffect(() => {
     (async () => {
       try {
+        // Cargar url_menu del establecimiento
+        const loadEstablecimientoData = async () => {
+          try {
+            await AuthService.loadStoredAuth();
+            if (AuthService.isAuthenticated()) {
+              const token = await AsyncStorage.getItem('token');
+              const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+              
+              const establecimientoRes = await fetch(`${API_URL}/establecimientos/activo`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+              });
+              
+              if (establecimientoRes.ok) {
+                const establecimientoData = await establecimientoRes.json();
+                if (establecimientoData.success && establecimientoData.establecimiento && establecimientoData.establecimiento.url_menu) {
+                  setUrlMenu(establecimientoData.establecimiento.url_menu);
+                }
+              }
+            }
+          } catch (error) {
+            console.error('Error cargando datos del establecimiento:', error);
+          }
+        };
+        
+        loadEstablecimientoData();
+        
         const token = await AsyncStorage.getItem('token');
         const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
         const base = API_URL.replace('/api','');
@@ -464,7 +491,11 @@ const LayoutScreen = ({ navigation }) => {
           <JuegoScreen />
         </View>
         <View style={[styles.screenWrapper, displayedTab !== 'Ordenes' && styles.hiddenScreen]} pointerEvents={displayedTab === 'Ordenes' ? 'auto' : 'none'}>
-          <OrdenesScreen onShowMeseroModalChange={handleShowMeseroModalChange} onShowCuentaModalChange={handleShowCuentaModalChange} />
+          <OrdenesScreen 
+            onShowMeseroModalChange={handleShowMeseroModalChange} 
+            onShowCuentaModalChange={handleShowCuentaModalChange}
+            urlMenu={urlMenu}
+          />
         </View>
         <View style={[styles.screenWrapper, displayedTab !== 'Ajustes' && styles.hiddenScreen]} pointerEvents={displayedTab === 'Ajustes' ? 'auto' : 'none'}>
           <AjustesScreen 
