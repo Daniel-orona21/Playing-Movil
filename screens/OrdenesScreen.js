@@ -17,7 +17,7 @@ const ProgressBar = ({ startTime, duration, currentTime, isOrdenEntregada }) => 
 
   const elapsed = Math.floor((currentTime - startTime) / 1000);
   const progress = Math.min(elapsed / duration, 1);
-  const isCompleted = isOrdenEntregada; // Cambiar solo si la orden está marcada como entregada
+  const isCompleted = isOrdenEntregada; 
 
   // Debug logs
   // console.log('ProgressBar Debug:', {

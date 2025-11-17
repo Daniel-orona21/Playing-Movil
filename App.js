@@ -153,12 +153,13 @@ export default function App() {
               <Text style={{
                 fontFamily: 'KaushanScript-Regular',
                 fontSize: 30,
-                paddingBottom: 50,
+                paddingBottom: 0,
                 color: 'white'
               }}>
                 Full Wings!
               </Text>
             ),
+            headerTitleAlign: 'center',
             headerStyle: {
               backgroundColor: 'transparent',
               borderWidth: 0,

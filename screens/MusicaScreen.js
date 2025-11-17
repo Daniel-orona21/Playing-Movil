@@ -32,6 +32,8 @@ const MusicaScreen = ({
   const [colaCancionId, setColaCancionId] = useState(null);
   const [likesCount, setLikesCount] = useState(0);
   const [skipsCount, setSkipsCount] = useState(0);
+  const [isVotingLikeState, setIsVotingLikeState] = useState(false);
+  const [isVotingSkipState, setIsVotingSkipState] = useState(false);
   
   // Estado para la navegación
   const [selectedNav, setSelectedNav] = useState(null);
@@ -82,6 +84,9 @@ const MusicaScreen = ({
   const lastColaIdLoaded = useRef(null);
   // Ref para mantener el colaCancionId actualizado en callbacks
   const colaCancionIdRef = useRef(null);
+  // Refs para evitar múltiples votos simultáneos (independientes por botón)
+  const isVotingLike = useRef(false);
+  const isVotingSkip = useRef(false);
 
   // Función para cargar el estado de voto del usuario con debouncing
   const loadUserVoteStatus = async (colaId, token, apiUrl) => {
@@ -174,6 +179,11 @@ const MusicaScreen = ({
   const handleLikePress = async () => {
     if (!colaCancionId) return;
     
+    // Evitar múltiples votos simultáneos (solo para este botón)
+    if (isVotingLike.current) return;
+    
+    isVotingLike.current = true;
+    setIsVotingLikeState(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     // Optimistic update - actualizar inmediatamente para mejor UX
@@ -209,12 +219,20 @@ const MusicaScreen = ({
       console.error('Error al votar like:', error);
       // Si falla, revertir el optimistic update
       setIsLiked(previousLiked);
+    } finally {
+      isVotingLike.current = false;
+      setIsVotingLikeState(false);
     }
   };
 
   const handleSkipPress = async () => {
     if (!colaCancionId) return;
     
+    // Evitar múltiples votos simultáneos (solo para este botón)
+    if (isVotingSkip.current) return;
+    
+    isVotingSkip.current = true;
+    setIsVotingSkipState(true);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     // Optimistic update - actualizar inmediatamente para mejor UX
@@ -254,6 +272,9 @@ const MusicaScreen = ({
       console.error('Error al votar skip:', error);
       // Si falla, revertir el optimistic update
       setIsSkipping(previousSkipping);
+    } finally {
+      isVotingSkip.current = false;
+      setIsVotingSkipState(false);
     }
   };
 
@@ -285,12 +306,14 @@ const MusicaScreen = ({
             <TouchableOpacity 
               style={styles.btnAccion}
               onPress={handleLikePress}
+              disabled={isVotingLikeState}
+              activeOpacity={isVotingLikeState ? 1 : 0.7}
             >
-              <BlurView intensity={20} style={styles.btnAccionBlur}>
+              <BlurView intensity={20} style={[styles.btnAccionBlur, isVotingLikeState && styles.btnAccionDisabled]}>
                 <FontAwesome 
                   name={isLiked ? "heart" : "heart-o"} 
                   size={26} 
-                  color={isLiked ? Colors.secundario : "white"} 
+                  color={isVotingLikeState ? "gray" : (isLiked ? Colors.secundario : "white")} 
                 />
               </BlurView>
             </TouchableOpacity>
@@ -298,12 +321,14 @@ const MusicaScreen = ({
             <TouchableOpacity 
               style={styles.btnAccion}
               onPress={handleSkipPress}
+              disabled={isVotingSkipState}
+              activeOpacity={isVotingSkipState ? 1 : 0.7}
             >
-              <BlurView intensity={20} style={styles.btnAccionBlur}>
+              <BlurView intensity={20} style={[styles.btnAccionBlur, isVotingSkipState && styles.btnAccionDisabled]}>
                 <Ionicons 
                   name={isSkipping ? "play-forward-sharp" : "play-forward-outline"} 
                   size={24} 
-                  color={isSkipping ? Colors.secundario : "white"} 
+                  color={isVotingSkipState ? "gray" : (isSkipping ? Colors.secundario : "white")} 
                 />
               </BlurView>
             </TouchableOpacity>
@@ -664,6 +689,9 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  btnAccionDisabled: {
+    opacity: 0.5,
   },
   duracion: {
     display: 'flex',

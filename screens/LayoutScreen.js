@@ -558,24 +558,31 @@ const LayoutScreen = ({ navigation }) => {
             isSelected={activeTab === 'Música'}
             onPress={() => handleTabChange('Música')}
           />
+              <TabButton
+                tabName="Ordenes"
+                iconName="document-text"
+                label="Orden"
+                isSelected={activeTab === 'Ordenes'}
+                onPress={() => handleTabChange('Ordenes')}
+              />
             <TabButton
+              tabName="Ajustes"
+              iconName="settings"
+              label="Ajustes"
+              isSelected={activeTab === 'Ajustes'}
+              onPress={() => handleTabChange('Ajustes')}
+            />
+            {/* <TabButton
               tabName="Juego"
               iconName="dice"
               label="Juego"
               isSelected={activeTab === 'Juego'}
               onPress={() => handleTabChange('Juego')}
-            />
-          <TabButton
-            tabName="Ordenes"
-            iconName="document-text"
-            label="Orden"
-            isSelected={activeTab === 'Ordenes'}
-            onPress={() => handleTabChange('Ordenes')}
-          />
+            /> */}
         </BlurView>
 
         {/* Botón de Ajustes separado */}
-        <BlurView intensity={15} style={styles.settingsContainer}>
+        {/* <BlurView intensity={15} style={styles.settingsContainer}>
           <TouchableOpacity
             style={[
               styles.settingsButton,
@@ -590,7 +597,7 @@ const LayoutScreen = ({ navigation }) => {
             />
             <Text style={[styles.tabLabel, { color: activeTab === 'Ajustes' ? Colors.secundario : 'white' }]}>Ajustes</Text>
           </TouchableOpacity>
-        </BlurView>
+        </BlurView> */}
       </View>
       </BlurView>
       
@@ -766,7 +773,7 @@ const styles = StyleSheet.create({
   tabBar: {
     backgroundColor: 'transparent',
     flexDirection: 'row',
-    paddingHorizontal: 20,
+    paddingHorizontal: '10%',
     paddingVertical: 10,
     paddingBottom: 20,
     alignItems: 'center',
