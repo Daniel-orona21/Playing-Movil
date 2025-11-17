@@ -80,6 +80,8 @@ const MusicaScreen = ({
   const loadingVoteStatus = useRef(false);
   const loadingVoteCounts = useRef(false);
   const lastColaIdLoaded = useRef(null);
+  // Ref para mantener el colaCancionId actualizado en callbacks
+  const colaCancionIdRef = useRef(null);
 
   // Función para cargar el estado de voto del usuario con debouncing
   const loadUserVoteStatus = async (colaId, token, apiUrl) => {
@@ -174,6 +176,10 @@ const MusicaScreen = ({
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
+    // Optimistic update - actualizar inmediatamente para mejor UX
+    const previousLiked = isLiked;
+    setIsLiked(!previousLiked);
+    
     try {
       const token = await AsyncStorage.getItem('token');
       const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
@@ -192,12 +198,17 @@ const MusicaScreen = ({
       
       if (response.ok) {
         const data = await response.json();
-        // Solo actualizar estado personal del usuario
+        // Actualizar estado personal del usuario con la respuesta del servidor
         setIsLiked(data.voted); // true si se agregó, false si se removió
         // Los contadores se actualizarán por socket (votes_update)
+      } else {
+        // Si falla, revertir el optimistic update
+        setIsLiked(previousLiked);
       }
     } catch (error) {
       console.error('Error al votar like:', error);
+      // Si falla, revertir el optimistic update
+      setIsLiked(previousLiked);
     }
   };
 
@@ -205,6 +216,10 @@ const MusicaScreen = ({
     if (!colaCancionId) return;
     
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    
+    // Optimistic update - actualizar inmediatamente para mejor UX
+    const previousSkipping = isSkipping;
+    setIsSkipping(!previousSkipping);
     
     try {
       const token = await AsyncStorage.getItem('token');
@@ -224,16 +239,21 @@ const MusicaScreen = ({
       
       if (response.ok) {
         const data = await response.json();
-        // Solo actualizar estado personal del usuario
+        // Actualizar estado personal del usuario con la respuesta del servidor
         setIsSkipping(data.voted); // true si se agregó, false si se removió
         // Los contadores se actualizarán por socket (votes_update)
         
         if (data.autoSkipped) {
           console.log('Canción skipeada automáticamente por mayoría de votos');
         }
+      } else {
+        // Si falla, revertir el optimistic update
+        setIsSkipping(previousSkipping);
       }
     } catch (error) {
       console.error('Error al votar skip:', error);
+      // Si falla, revertir el optimistic update
+      setIsSkipping(previousSkipping);
     }
   };
 
@@ -373,6 +393,7 @@ const MusicaScreen = ({
                     // Solo cargar colaCancionId - los votos llegarán por socket
                     if (playingData.currentPlaying.cola_id) {
                       setColaCancionId(playingData.currentPlaying.cola_id);
+                      colaCancionIdRef.current = playingData.currentPlaying.cola_id;
                       // Cargar estado inicial solo UNA VEZ al inicio
                       await loadUserVoteStatus(playingData.currentPlaying.cola_id, token, API_URL);
                       await loadVoteCounts(playingData.currentPlaying.cola_id, token, API_URL);
@@ -381,7 +402,7 @@ const MusicaScreen = ({
                 }
                 
                 // Suscribirse a eventos de reproducción
-                unsubscribePlaybackUpdate.current = MusicaSocketService.on('playback_update', (data) => {
+                unsubscribePlaybackUpdate.current = MusicaSocketService.on('playback_update', async (data) => {
                   if (data.currentTrack) {
                     setCurrentTrack(data.currentTrack);
                     setIsPlaying(data.isPlaying || false);
@@ -389,18 +410,25 @@ const MusicaScreen = ({
                     setTotalDuration(data.currentTrack.duracion || 0);
                     
                     // Solo actualizar colaCancionId - los votos llegarán por votes_update
-                    if (data.currentTrack.cola_id && data.currentTrack.cola_id !== colaCancionId) {
-                      setColaCancionId(data.currentTrack.cola_id);
+                    if (data.currentTrack.cola_id && data.currentTrack.cola_id !== colaCancionIdRef.current) {
+                      const newColaId = data.currentTrack.cola_id;
+                      setColaCancionId(newColaId);
+                      colaCancionIdRef.current = newColaId;
                       // Resetear votos al cambiar de canción
                       setIsLiked(false);
                       setIsSkipping(false);
                       setLikesCount(0);
                       setSkipsCount(0);
+                      // Cargar estado de voto del usuario para la nueva canción
+                      const currentToken = await AsyncStorage.getItem('token');
+                      const currentApiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+                      await loadUserVoteStatus(newColaId, currentToken, currentApiUrl);
+                      await loadVoteCounts(newColaId, currentToken, currentApiUrl);
                     }
                   }
                 });
                 
-                unsubscribeTrackStarted.current = MusicaSocketService.on('track_started', (data) => {
+                unsubscribeTrackStarted.current = MusicaSocketService.on('track_started', async (data) => {
                   if (data.track) {
                     setCurrentTrack(data.track);
                     setIsPlaying(true);
@@ -409,12 +437,19 @@ const MusicaScreen = ({
                     
                     // Solo actualizar colaCancionId - los votos llegarán por votes_update
                     if (data.track.cola_id) {
-                      setColaCancionId(data.track.cola_id);
+                      const newColaId = data.track.cola_id;
+                      setColaCancionId(newColaId);
+                      colaCancionIdRef.current = newColaId;
                       // Resetear votos al iniciar nueva canción
                       setIsLiked(false);
                       setIsSkipping(false);
                       setLikesCount(0);
                       setSkipsCount(0);
+                      // Cargar estado de voto del usuario para la nueva canción
+                      const currentToken = await AsyncStorage.getItem('token');
+                      const currentApiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+                      await loadUserVoteStatus(newColaId, currentToken, currentApiUrl);
+                      await loadVoteCounts(newColaId, currentToken, currentApiUrl);
                     }
                   }
                 });
@@ -433,10 +468,13 @@ const MusicaScreen = ({
                   }
                 });
                 
-                // Suscribirse a actualizaciones de votos (ÚNICA FUENTE DE VOTOS)
+                // Suscribirse a actualizaciones de votos (ÚNICA FUENTE DE CONTADORES)
                 unsubscribeVotesUpdate.current = MusicaSocketService.on('votes_update', (data) => {
-                  // Actualizar votos para cualquier canción del establecimiento
-                  if (data.colaCancionId === colaCancionId) {
+                  // Actualizar contadores solo para la canción actual
+                  // NOTA: El estado personal del usuario (isLiked/isSkipping) se mantiene
+                  // porque se actualiza directamente cuando el usuario vota
+                  // Usar ref para evitar problemas de closure
+                  if (data.colaCancionId === colaCancionIdRef.current) {
                     setLikesCount(data.likes || 0);
                     setSkipsCount(data.skips || 0);
                   }
@@ -450,6 +488,15 @@ const MusicaScreen = ({
                   setIsSkipping(false);
                   setLikesCount(0);
                   setSkipsCount(0);
+                  // Si hay una nueva canción, cargar su estado de voto
+                  if (data.newTrack && data.newTrack.cola_id) {
+                    const currentToken = await AsyncStorage.getItem('token');
+                    const currentApiUrl = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:3000/api';
+                    setColaCancionId(data.newTrack.cola_id);
+                    colaCancionIdRef.current = data.newTrack.cola_id;
+                    await loadUserVoteStatus(data.newTrack.cola_id, currentToken, currentApiUrl);
+                    await loadVoteCounts(data.newTrack.cola_id, currentToken, currentApiUrl);
+                  }
                 });
               }
             }
