@@ -169,6 +169,30 @@ class OrdenesSocketService {
       throw error;
     }
   }
+
+  /**
+   * Obtener las órdenes de la mesa activa del usuario actual
+   * @param {string} token - Token de autenticación
+   * @returns {Promise}
+   */
+  async getOrdenesMesa(token) {
+    try {
+      const url = `${API_URL}/ordenes/mesa`;
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error al obtener órdenes de la mesa:', error);
+      throw error;
+    }
+  }
 }
 
 export default new OrdenesSocketService();

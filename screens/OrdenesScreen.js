@@ -102,6 +102,7 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange, urlMe
   const [currentTime, setCurrentTime] = useState(new Date());
   const orderTimerRef = useRef(null);
   const [mesaActiva, setMesaActiva] = useState(null);
+  const mesaIdRef = useRef(null);
 
   const onLayoutRootView = useCallback(async () => {
     if (fontsLoaded || fontError) {
@@ -179,9 +180,25 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange, urlMe
     }
   };
 
-  // Cargar órdenes del usuario al montar el componente
+  const loadOrdenesMesa = async () => {
+    try {
+      setIsLoading(true);
+      const token = AuthService.getToken();
+      const response = await OrdenesSocketService.getOrdenesMesa(token);
+      
+      if (response.success) {
+        setOrders(response.ordenes || []);
+      }
+    } catch (error) {
+      console.error('Error al cargar órdenes de la mesa:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Cargar órdenes de la mesa al montar el componente
   useEffect(() => {
-    loadOrdenesUsuario();
+    loadOrdenesMesa();
     
     // Iniciar timer para actualizar tiempos (cada segundo para el progress bar)
     orderTimerRef.current = setInterval(() => {
@@ -200,9 +217,7 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange, urlMe
     const user = AuthService.getCurrentUser();
     if (!user) return;
     
-    const userId = user.id_user || user.id; // Soportar ambos formatos
-    
-    // Obtener el establecimiento ID desde la mesa activa del cliente
+    // Obtener el establecimiento ID y mesa ID desde la mesa activa del cliente
     const setupSocket = async () => {
       try {
         const apiUrl = process.env.EXPO_PUBLIC_API_URL;
@@ -216,35 +231,33 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange, urlMe
         
         if (data.success && data.establecimiento) {
           const establecimientoId = data.establecimiento.id_establecimiento;
+          const mesaId = data.establecimiento.id_mesa;
+          mesaIdRef.current = mesaId; // Guardar mesa_id para verificar en listeners
+          
           OrdenesSocketService.connect(establecimientoId);
           
           // Listener para nuevas órdenes
           OrdenesSocketService.on('orden_created', (ordenData) => {
-            // Verificar si la orden es para este usuario
-            if (ordenData.usuario_id === userId) {
-              loadOrdenesUsuario();
+            // Verificar si la orden es de la misma mesa
+            if (ordenData.mesa_id === mesaIdRef.current) {
+              loadOrdenesMesa();
             }
           });
           
           // Listener para órdenes actualizadas
           OrdenesSocketService.on('orden_updated', (ordenData) => {
-            // Verificar si la orden actualizada pertenece a este usuario
-            if (ordenData && ordenData.usuario_id === userId) {
-              loadOrdenesUsuario();
+            // Verificar si la orden pertenece a nuestra mesa
+            if (ordenData && ordenData.mesa_id === mesaIdRef.current) {
+              loadOrdenesMesa();
             }
           });
           
           // Listener para órdenes eliminadas
           OrdenesSocketService.on('ordenes_deleted', (data) => {
-            // Verificar si alguna de las órdenes eliminadas pertenece a este usuario
-            if (data && data.usuarios) {
-              // data.usuarios es un mapa de id_orden -> usuario_id
-              const perteneceAlUsuario = Object.values(data.usuarios).some(
-                ordenUsuarioId => ordenUsuarioId === userId
-              );
-              if (perteneceAlUsuario) {
-                loadOrdenesUsuario();
-              }
+            // Recargar si tenemos mesa activa (las órdenes eliminadas pueden ser de cualquier usuario de la mesa)
+            // Como no tenemos mesa_id en el evento, recargamos siempre si tenemos mesa activa
+            if (mesaIdRef.current) {
+              loadOrdenesMesa();
             }
           });
         }
@@ -260,22 +273,6 @@ const OrdenesScreen = ({ onShowMeseroModalChange, onShowCuentaModalChange, urlMe
       OrdenesSocketService.disconnect();
     };
   }, []);
-
-  const loadOrdenesUsuario = async () => {
-    try {
-      setIsLoading(true);
-      const token = AuthService.getToken();
-      const response = await OrdenesSocketService.getOrdenesUsuario(token);
-      
-      if (response.success) {
-        setOrders(response.ordenes || []);
-      }
-    } catch (error) {
-      console.error('Error al cargar órdenes:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Calcular el tiempo restante dinámicamente basándose en la fecha de creación
   // Usa tiempo_estimado + tiempo_anadido para el cálculo correcto
